@@ -72,8 +72,7 @@ A question addressed to the group belongs to the people first. Do not answer for
 
 # How loud
 
-- "card" — a card appears on the shared screen. For information the group can read when they next look up: research results, a corrected fact.
-- "speak" — one sentence aloud at the next pause, plus the card. For a moment that will pass before a card gets read: the group is committing, time is nearly gone, or the talk has drifted. A facilitator steering and a devil's advocate objecting are things said out loud, so pilot and rebel normally speak.
+- "speak" — the teammate steps forward and says one sentence aloud at the next pause. Any detail it brings, such as a number or its sources, shows in a small box under the line. This is how a teammate steps in, whichever teammate it is.
 - "hint" — the icon lights up, nothing else. Rarely right; only for a side note the group can safely never read.
 
 # What you may know about the people
@@ -101,7 +100,7 @@ const DecisionSchema = z.object({
   people_have_had_a_turn: z.boolean().describe("True if at least one turn has passed since the situation first came up, so the people have had a chance to react. False if it came up in the latest turn."),
   action: z.enum(["stay_silent", "intervene"]),
   teammate: z.enum(TEAMMATE_IDS).nullable(),
-  level: z.enum(["hint", "card", "speak"]).nullable(),
+  level: z.enum(["hint", "speak"]).nullable(),
   brief: z.string().nullable(),
   watching: z
     .string()
@@ -114,7 +113,7 @@ export type Decision =
   | { action: "stay_silent"; reason: string }
   | { action: "intervene"; teammate: TeammateId; level: InterventionLevel; brief: string; reason: string };
 
-const LEVELS: Record<"hint" | "card" | "speak", InterventionLevel> = { hint: 1, card: 2, speak: 3 };
+const LEVELS: Record<"hint" | "speak", InterventionLevel> = { hint: 1, speak: 3 };
 
 export const newMemory = (): OrchestratorMemory => ({ watching: null });
 

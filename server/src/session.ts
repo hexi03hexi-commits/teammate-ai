@@ -508,10 +508,12 @@ export class Session {
     this.lastInterventionAt[teammate] = Date.now();
     this.broadcast({ type: "card", card });
 
-    const wantsToSpeak = input.level === 3 && !!input.say && !this.isMuted(teammate);
+    // 走到台前的队友都把那句话说出来：屏幕上是一个对话气泡，有气泡没声音会让人以为坏了
+    const wantsToSpeak = input.level >= 2 && !!input.say && !this.isMuted(teammate);
     if (wantsToSpeak) {
       // 先亮起，等到停顿再开口
       this.setStatus(teammate, "has_something");
+      void synthesize(teammate, input.say!); // 趁等停顿的时候先把语音合成好
       this.speakQueue.push({ id: this.id("s"), teammate, text: input.say!, cardId: card.id, queuedAt: Date.now(), direct });
     } else {
       this.setStatus(teammate, input.level === 1 ? "has_something" : this.restingStatus(teammate));

@@ -48,7 +48,7 @@ function userMessage(ctx: MeetingContext, brief: string, level: InterventionLeve
   return [
     `Recent conversation (most recent last):\n${renderTranscript(ctx.transcript, 30)}`,
     `Why you are stepping in: ${brief}`,
-    level === 3 ? `Your "say" sentence will be spoken aloud at the next pause.` : `Only the card will be shown this time; still write "say" in case it is needed.`,
+    level === 1 ? `Only your icon will light up this time; still write "say" in case it is needed.` : `Your "say" sentence will be spoken aloud at the next pause.`,
   ].join("\n\n");
 }
 
