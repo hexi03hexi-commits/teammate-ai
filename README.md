@@ -21,7 +21,7 @@ Each specialist has a paired rule: what it looks like when the role is empty, an
 - **Listens live.** The browser streams the microphone to the server, where speech is transcribed and split by speaker.
 - **Knows who is talking.** Each person records a few seconds of speech once. After that their voice is matched to their name in every meeting.
 - **Decides whether to step in.** After each pause, Atlas reads the whole conversation and decides to stay quiet, keep watching something, or send in one specialist with a brief.
-- **Speaks at the right moment.** A teammate waits for a gap in the conversation, says one short line aloud, and shows a small box under it only when there is something to add, such as a number or sources.
+- **Speaks at the right moment.** A teammate waits for a gap in the conversation, says one short line aloud in its own voice, and shows a small box under it only when there is something to add, such as a number or sources.
 - **Answers questions.** Say "Atlas, how much time do we have left?" and it answers. If the question needs a web search or a fact check, it passes it to Scout or Sage, shown as a note flying across the screen.
 - **Can be told to wait.** Say "not now, Atlas" or mute a single teammate.
 - **Writes the minutes.** When the meeting ends you get a summary, the decision, who took which task, open risks, and what each teammate contributed.
@@ -44,7 +44,7 @@ One rule shapes the design: **the models decide whether to speak, who speaks and
 | Pilot, Scout, Sage, Rebel; meeting minutes; private notes | `claude-opus-5-5` | Runs rarely, and its words are what the team hears |
 | Keyword chips on the listening screen | `claude-haiku-5-5` | Cosmetic and frequent |
 
-Speech-to-text is Deepgram `nova-3` with speaker diarization. Voiceprints run locally on the server with `sherpa-onnx`.
+Speech-to-text is Deepgram `nova-3` with speaker diarization. Voiceprints run locally on the server with `sherpa-onnx`. The teammates' voices are ElevenLabs `eleven_flash_v2_5`, one voice each; a line is synthesised while the teammate is still waiting for a pause, so it is ready the moment the gap comes.
 
 ## Quick start
 
@@ -78,6 +78,8 @@ Set `MODE` in `.env`.
 | `replay` | `fixtures/brainstorm.json` | Real models | `ANTHROPIC_API_KEY` |
 | `live` | The host device's microphone | Real models | `ANTHROPIC_API_KEY` and `DEEPGRAM_API_KEY` |
 
+`ELEVENLABS_API_KEY` is optional in every mode. With it each teammate has its own voice; without it, or if a request fails, the browser's built-in voice reads the line instead.
+
 `REPLAY_SPEED=5` fast-forwards a replay. Pauses and cooldowns shrink by the same factor.
 
 ### Running a live meeting
@@ -107,6 +109,12 @@ Check transcription and speaker split on a recording, without calling any model:
 
 ```bash
 npm run asr:file -w server -- recordings/session.wav --speakers Henry,Ava
+```
+
+List the voices your ElevenLabs account can use. To change a teammate's voice, set `TTS_VOICE_<NAME>` in `.env` to a voice id, for example `TTS_VOICE_REBEL`. The coordinator's variable is `TTS_VOICE_MAIN`.
+
+```bash
+npm run voices -w server
 ```
 
 ## Evaluating when it steps in
@@ -151,7 +159,6 @@ Built with TypeScript throughout: React 19, Vite, Tailwind CSS, Motion and three
 
 ## Known limits
 
-- Teammates speak with the browser's built-in speech voice. Dedicated voices are not connected yet.
 - While a teammate is speaking, what people say is not heard. This stops the device from listening to itself.
 - Voiceprints are matched within one language: someone enrolled in Mandarin is not recognised when speaking English, so enrol in the language of the meeting.
 - A new voice takes about two seconds of speech to be named.

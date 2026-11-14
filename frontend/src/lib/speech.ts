@@ -1,4 +1,5 @@
 import type { ClientMessage, ServerEvent, AgentId } from "@teammate/shared";
+import { serverUrl } from "./env";
 
 export type SpeakEvent = Extract<ServerEvent, { type: "speak" }>;
 type Send = (msg: ClientMessage) => void;
@@ -123,7 +124,7 @@ class SpeechQueue {
       a.onplaying = start;
       a.onended = finish;
       a.onerror = fail;
-      a.src = e.audioUrl;
+      a.src = e.audioUrl.startsWith("/") ? serverUrl(e.audioUrl) : e.audioUrl;
       guard = window.setTimeout(finish, AUDIO_TIMEOUT_MS);
       a.play().catch(fail);
       return;

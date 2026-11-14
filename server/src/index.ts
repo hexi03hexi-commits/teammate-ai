@@ -7,6 +7,7 @@ import { Session, type Brain } from "./session.ts";
 import { Replay } from "./replay.ts";
 import { LiveAudio } from "./audio/asr.ts";
 import * as voiceprint from "./audio/voiceprint.ts";
+import { serveAudio, ttsAvailable } from "./audio/tts.ts";
 import { forgetPersonas } from "./personaStore.ts";
 
 const clients = new Map<WebSocket, ClientRole>();
@@ -110,9 +111,10 @@ const server = http.createServer((req, res) => {
     });
     return;
   }
+  if (serveAudio(req, res, url.pathname)) return;
   if (req.url === "/health") {
     res.setHeader("Content-Type", "application/json");
-    res.end(JSON.stringify({ ok: true, mode: config.mode, phase: session.snapshot.phase, clients: clients.size }));
+    res.end(JSON.stringify({ ok: true, mode: config.mode, phase: session.snapshot.phase, clients: clients.size, voices: ttsAvailable() ? "elevenlabs" : "browser" }));
     return;
   }
   res.statusCode = 404;
