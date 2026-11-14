@@ -27,6 +27,7 @@ ws.on("message", (data) => {
   const e = JSON.parse(data.toString()) as ServerEvent;
   switch (e.type) {
     case "transcript":
+    case "speaking":
       return;
     case "snapshot":
       return console.log(at(), "snapshot", e.snapshot.phase);

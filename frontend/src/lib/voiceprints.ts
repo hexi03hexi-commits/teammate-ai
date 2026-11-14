@@ -44,3 +44,12 @@ export async function forgetVoice(teamId: string, memberId: string): Promise<voi
     // nothing to forget if the server is not there
   }
 }
+
+/** A team was deleted: have the server drop everything it keeps about it (voiceprints, private notes). */
+export async function forgetTeamData(teamId: string): Promise<void> {
+  try {
+    await fetch(serverUrl(`/voiceprints?team=${encodeURIComponent(teamId)}`), { method: "DELETE" });
+  } catch {
+    // nothing to forget if the server is not there
+  }
+}

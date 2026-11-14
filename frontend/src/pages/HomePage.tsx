@@ -9,12 +9,12 @@ import { TeamList } from "./home/TeamList";
 const SLEEP_AFTER = 12_000;
 
 const MOOD_WORD: Record<Mood, string> = {
-  asleep: "mate is asleep",
-  idle: "mate is here",
-  listening: "mate is listening",
-  thinking: "mate is thinking",
-  nudging: "mate is curious",
-  speaking: "mate says hi",
+  asleep: "Atlas is asleep",
+  idle: "Atlas is here",
+  listening: "Atlas is listening",
+  thinking: "Atlas is thinking",
+  nudging: "Atlas is curious",
+  speaking: "Atlas says hi",
 };
 
 export function HomePage({
@@ -114,7 +114,7 @@ export function HomePage({
       </aside>
 
       <main ref={stage} className="relative flex min-w-0 flex-1 flex-col items-center justify-center overflow-hidden">
-        {/* The only colour on the page: a soft halo borrowed from Mate */}
+        {/* The only colour on the page: a soft halo borrowed from Atlas */}
         <div
           aria-hidden
           className="pointer-events-none absolute rounded-full transition-opacity duration-1000"
@@ -135,7 +135,7 @@ export function HomePage({
         >
           <motion.button
             type="button"
-            aria-label="Mate"
+            aria-label="Atlas"
             onClick={poke}
             whileHover={reduce ? undefined : { scale: 1.03 }}
             whileTap={reduce ? undefined : { scale: 0.88 }}
@@ -149,7 +149,7 @@ export function HomePage({
 
         <div className="relative mt-10 flex flex-col items-center gap-2 text-center">
           <h1 className="text-[44px] leading-none font-semibold tracking-[-0.03em] text-ink lg:text-[52px]">
-            teammate<span className="text-ink-3"> ai</span>
+            Teammate <span style={{ color: glow.color }}>AI</span>
           </h1>
           <div className="relative h-7 w-64 overflow-hidden">
             <AnimatePresence mode="popLayout" initial={false}>

@@ -126,15 +126,20 @@ function loudEnough(pcm: Buffer): boolean {
 /** teamId → memberId → 每次录入的向量 */
 type Store = Record<string, Record<string, number[][]>>;
 
+let cache: Store | null = null;
+
 function read(): Store {
+  if (cache) return cache;
   try {
-    return JSON.parse(fs.readFileSync(STORE_PATH, "utf8")) as Store;
+    cache = JSON.parse(fs.readFileSync(STORE_PATH, "utf8")) as Store;
   } catch {
-    return {};
+    cache = {};
   }
+  return cache;
 }
 
 function write(store: Store) {
+  cache = store;
   fs.mkdirSync(path.dirname(STORE_PATH), { recursive: true });
   fs.writeFileSync(STORE_PATH, JSON.stringify(store));
 }
@@ -160,6 +165,15 @@ export function enrol(teamId: string, memberId: string, pcm: Buffer, replace: bo
   return { ok: true, seconds: seconds(pcm), clips: team[memberId].length };
 }
 
+/** 删除整个团队的声纹（团队被删除时） */
+export function forgetTeam(teamId: string) {
+  const store = read();
+  if (store[teamId]) {
+    delete store[teamId];
+    write(store);
+  }
+}
+
 export function forget(teamId: string, memberId: string) {
   const store = read();
   if (store[teamId]?.[memberId]) {
@@ -179,16 +193,16 @@ export interface Match {
  * 这段语音是候选人里的谁。认不出（没人过线，或前两名太接近）返回 null 和分数。
  * `among` 是这场会议里还没被认领的成员。
  */
-export function identify(teamId: string, pcm: Buffer, among: string[]): { match: Match | null; scores: Record<string, number> } {
+export function identify(teamId: string, pcm: Buffer, among: string[], minSeconds = 1.5, threshold = THRESHOLD): { match: Match | null; scores: Record<string, number> } {
   const team = read()[teamId] ?? {};
   const candidates = among.filter((id) => team[id]?.length);
-  if (!extractor || candidates.length === 0 || seconds(pcm) < 1.5) return { match: null, scores: {} };
+  if (!extractor || candidates.length === 0 || seconds(pcm) < minSeconds) return { match: null, scores: {} };
   const v = embed(pcm);
   const scores: Record<string, number> = {};
   for (const id of candidates) scores[id] = Number(cosine(v, mean(team[id])).toFixed(3));
   const ranked = Object.entries(scores).sort((a, b) => b[1] - a[1]);
   const [bestId, best] = ranked[0];
   const runnerUp = ranked[1]?.[1] ?? -1;
-  if (best < THRESHOLD || best - runnerUp < MARGIN) return { match: null, scores };
+  if (best < threshold || best - runnerUp < MARGIN) return { match: null, scores };
   return { match: { memberId: bestId, score: best, scores }, scores };
 }

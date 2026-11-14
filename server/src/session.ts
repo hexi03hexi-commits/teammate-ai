@@ -1,9 +1,11 @@
 import {
   emptySnapshot,
-  findCalledTeammate,
+  AGENT_ALIASES,
+  findCalledAgent,
   isHushCommand,
-  TEAMMATE_ALIASES,
+  MAIN_AGENT,
   TEAMMATE_IDS,
+  type AgentId,
   type Card,
   type CardSource,
   type ClientMessage,
@@ -15,7 +17,7 @@ import {
   type TeammateStatus,
   type Utterance,
 } from "@teammate/shared";
-import { newMemory, type Decision, type KeywordInput, type MeetingContext, type Persona, type RoleOutput } from "@teammate/agents";
+import { newMemory, type Decision, type KeywordInput, type MainReply, type MeetingContext, type Persona, type RoleOutput } from "@teammate/agents";
 import { loadPersonas, savePersonas } from "./personaStore.ts";
 import { config } from "./config.ts";
 import { synthesize } from "./audio/tts.ts";
@@ -27,11 +29,12 @@ export interface Brain {
   writeDecision(ctx: MeetingContext): Promise<SessionSnapshot["decision"] & {}>;
   updatePersonas(ctx: MeetingContext, previous: Persona[]): Promise<Persona[]>;
   extractKeywords(input: KeywordInput): Promise<string[]>;
+  askMain(ctx: MeetingContext, question: string, asker: string): Promise<MainReply>;
 }
 
 interface PendingSpeak {
   id: string;
-  teammate: TeammateId;
+  teammate: AgentId;
   text: string;
   cardId: string;
   queuedAt: number;
@@ -40,7 +43,7 @@ interface PendingSpeak {
 }
 
 export interface InterventionInput {
-  teammate: TeammateId;
+  teammate: AgentId;
   level: InterventionLevel;
   title: string;
   body: string;
@@ -65,7 +68,7 @@ export class Session {
   private deciding = false;
   private decideAgain = false;
   private lastSpeakAt = 0;
-  private lastInterventionAt: Partial<Record<TeammateId, number>> = {};
+  private lastInterventionAt: Partial<Record<AgentId, number>> = {};
   private lastAnyInterventionAt = 0;
   /** 主 agent 跨轮次的观察（它在留意、还没到要介入的事） */
   private memory = newMemory();
@@ -75,7 +78,7 @@ export class Session {
   private settleTimer: NodeJS.Timeout | null = null;
   private settleSince = 0;
   /** 只喊了名字、在等问题的队友 */
-  private pendingCall: { teammate: TeammateId; until: number } | null = null;
+  private pendingCall: { teammate: AgentId; until: number } | null = null;
   /** 关键词：还没看过的句子、已经显示过的词 */
   private kwFresh: Utterance[] = [];
   private kwShown: string[] = [];
@@ -133,23 +136,34 @@ export class Session {
     };
   }
 
-  private setStatus(teammate: TeammateId, status: TeammateStatus) {
+  private setStatus(teammate: AgentId, status: TeammateStatus) {
+    if (teammate === "main") {
+      // 主 agent 只有三种状态：在听、在想、在说
+      const next = status === "speaking" ? "speaking" : status === "preparing" ? "preparing" : "idle";
+      if (this.snapshot.main === next) return;
+      this.snapshot.main = next;
+      this.broadcast({ type: "main_state", status: next });
+      return;
+    }
     const state = this.snapshot.teammates[teammate];
     if (state.status === status) return;
     state.status = status;
     this.broadcast({ type: "teammate_state", teammate, state });
   }
 
-  private isMuted(teammate: TeammateId) {
+  private isMuted(teammate: AgentId) {
+    if (teammate === "main") return false; // 主 agent 只在被问到时说话，不受静音影响
     return (this.mutedUntil[teammate] ?? 0) > Date.now();
   }
 
-  private canUse(teammate: TeammateId) {
+  private canUse(teammate: AgentId) {
+    if (teammate === "main") return true;
     return this.snapshot.teammates[teammate].override !== "off" && !this.isMuted(teammate);
   }
 
   /** 队友空闲时应当显示什么状态 */
-  private restingStatus(teammate: TeammateId): TeammateStatus {
+  private restingStatus(teammate: AgentId): TeammateStatus {
+    if (teammate === "main") return "idle";
     if (this.isMuted(teammate)) return "muted";
     const hasUnseenHint = this.snapshot.cards.some((c) => c.teammate === teammate && c.level === 1 && c.status === "active");
     return hasUnseenHint ? "has_something" : "idle";
@@ -259,6 +273,13 @@ export class Session {
     return this.snapshot.config?.speakers.find((s) => s.id === speakerId)?.name ?? speakerId;
   }
 
+  /** 声纹实时认出了正在说话的人：马上告诉界面，不等这句话识别完。 */
+  onSpeaking(speakerId: string) {
+    if (this.snapshot.phase !== "live" || this.snapshot.paused || this.isSpeaking) return;
+    this.lastSpeechAt = Date.now();
+    this.broadcast({ type: "speaking", speakerId });
+  }
+
   /** 语音识别（或回放）每产出一句话就调用这里。 */
   onUtterance(input: { speakerId: string; text: string; isFinal: boolean }) {
     if (this.snapshot.phase !== "live") return;
@@ -300,19 +321,25 @@ export class Session {
       const { teammate } = this.pendingCall;
       this.pendingCall = null;
       log(`  → ${teammate} got the question`);
-      void this.produce(teammate, 3, `${u.speakerName} called you by name and then asked: "${u.text}". Answer the question.`, true);
+      if (teammate === "main") void this.askMain(u.text, u.speakerName);
+      else void this.produce(teammate, 3, `${u.speakerName} called you by name and then asked: "${u.text}". Answer the question.`, true);
       return;
     }
 
     // 被点名：“Hey Scout, …”“Scout，帮我查一下”。点名优先于主动介入，跳过主 agent 和冷却。
-    const called = findCalledTeammate(u.text);
+    const called = findCalledAgent(u.text);
     if (called) {
-      if (this.snapshot.teammates[called].override === "off") return;
+      if (called !== "main" && this.snapshot.teammates[called].override === "off") return;
       if (this.isBareCall(u.text)) {
         // 只听到名字，问题还没说：先表示“我在听”，等下一句
         log(`  → ${called} was called by name, waiting for the question`);
         this.pendingCall = { teammate: called, until: Date.now() + config.callWaitMs };
-        if (this.snapshot.teammates[called].status !== "speaking") this.setStatus(called, "preparing");
+        if (this.statusOf(called) !== "speaking") this.setStatus(called, "preparing");
+        return;
+      }
+      if (called === "main") {
+        log(`  → ${MAIN_AGENT.name} was asked`);
+        void this.askMain(u.text, u.speakerName);
         return;
       }
       log(`  → ${called} was called by name`);
@@ -335,8 +362,8 @@ export class Session {
 
   /** 这句话是不是只有一个称呼，没有内容（“Scout”“嘿 Scout”）。 */
   private isBareCall(text: string): boolean {
-    const names = TEAMMATE_IDS.flatMap((id) => TEAMMATE_ALIASES[id]).join("|");
-    const rest = text.replace(new RegExp(`(hey|hi|ok|okay|嘿|嗨|喂|诶|哎|${names})`, "gi"), "").replace(/[\s,，、。！？!?.:：]/g, "");
+    const names = Object.values(AGENT_ALIASES).flat().join("|");
+    const rest = text.replace(new RegExp(`\\b(hey|hi|ok|okay|${names})\\b`, "gi"), "").replace(/[\s,!?.:]/g, "");
     return rest.length < 3;
   }
 
@@ -414,6 +441,31 @@ export class Session {
     }
   }
 
+  private statusOf(agent: AgentId): TeammateStatus {
+    return agent === "main" ? this.snapshot.main : this.snapshot.teammates[agent].status;
+  }
+
+  /** 有人直接问主 agent：它自己回答，或者转给更合适的队友。 */
+  private async askMain(question: string, asker: string) {
+    if (!this.brain) return;
+    if (this.snapshot.main !== "speaking") this.setStatus("main", "preparing");
+    try {
+      const reply = await this.brain.askMain(this.context(), question, asker);
+      if (this.snapshot.phase !== "live") return;
+      if (reply.handoff) {
+        log(`  → ${MAIN_AGENT.name} passes it to ${reply.handoff}`);
+        if (this.snapshot.main === "preparing") this.setStatus("main", "idle");
+        void this.produce(reply.handoff, 3, reply.brief, true);
+        return;
+      }
+      this.intervene({ teammate: "main", level: 3, title: reply.title, body: reply.body, say: reply.say }, true);
+    } catch (err) {
+      log(`${MAIN_AGENT.name} failed:`, err);
+    } finally {
+      if (this.snapshot.main === "preparing") this.setStatus("main", "idle");
+    }
+  }
+
   /** 让角色 agent 写内容，然后发出介入。 */
   private async produce(teammate: TeammateId, level: InterventionLevel, brief: string, direct: boolean) {
     if (!this.brain) return;
@@ -475,7 +527,7 @@ export class Session {
     if (this.pendingCall && now > this.pendingCall.until) {
       const { teammate } = this.pendingCall;
       this.pendingCall = null;
-      if (this.snapshot.teammates[teammate].status === "preparing") this.setStatus(teammate, this.restingStatus(teammate));
+      if (this.statusOf(teammate) === "preparing") this.setStatus(teammate, this.restingStatus(teammate));
     }
 
     // 静音到期
@@ -572,7 +624,7 @@ export class Session {
         this.broadcast({ type: "card_update", id: card.id, status: card.status });
         // 忽略卡片时，同一张卡排队中的发言也一并取消
         if (card.status === "dismissed") this.speakQueue = this.speakQueue.filter((p) => p.cardId !== card.id);
-        if (this.snapshot.teammates[card.teammate].status === "has_something") {
+        if (this.statusOf(card.teammate) === "has_something") {
           this.setStatus(card.teammate, this.restingStatus(card.teammate));
         }
         return;

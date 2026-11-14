@@ -2,7 +2,7 @@ import { useSyncExternalStore, type ButtonHTMLAttributes, type ReactNode } from 
 
 /** Shared small pieces. Keep this file tiny: anything page-specific lives with its page. */
 
-type IconName = "plus" | "back" | "pause" | "play" | "stop" | "check" | "close" | "sun" | "moon" | "arrow" | "link" | "export" | "copy" | "mic" | "micOff" | "redo" | "sliders";
+type IconName = "plus" | "back" | "pause" | "play" | "stop" | "check" | "close" | "sun" | "moon" | "arrow" | "link" | "export" | "copy" | "mic" | "micOff" | "redo" | "sliders" | "edit" | "trash";
 
 const PATHS: Record<IconName, ReactNode> = {
   plus: <path d="M12 5v14M5 12h14" />,
@@ -33,6 +33,8 @@ const PATHS: Record<IconName, ReactNode> = {
     </>
   ),
   sliders: <path d="M5 7.5h6M15 7.5h4M5 16.5h3M12 16.5h7M13 5v5M10 14v5" />,
+  edit: <path d="M4.5 19.5h4l10-10a2.1 2.1 0 0 0-3-3l-10 10-1 3ZM14 8l2.5 2.5" />,
+  trash: <path d="M5.5 7.5h13M9.5 7.5V5.5h5v2M7.5 7.5l.8 11h7.4l.8-11M10.5 11v4.5M13.5 11v4.5" />,
   redo: <path d="M19 8.5V4.5M19 8.5h-4M19 8.5a7.5 7.5 0 1 0 .5 6" />,
   export: <path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14" />,
   copy: (

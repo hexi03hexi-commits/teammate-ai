@@ -20,7 +20,10 @@ interface Props {
   className?: string;
 }
 
-/** An agent: liquid body + face + the object it carries + the marks that show what it is doing. */
+/**
+ * An agent: liquid body + face + the marks that show what it is doing + the object it has at hand
+ * (Prop), which says what it is for and moves with what it is doing.
+ */
 export function AgentFigure({ agent, mood, size, look, bare, className }: Props) {
   const a = AGENTS[agent];
   const asleep = mood === "asleep";
@@ -51,9 +54,10 @@ export function AgentFigure({ agent, mood, size, look, bare, className }: Props)
       ) : (
         <CssBody from={from} to={to} />
       )}
-      <Face mood={mood} look={look} />
+      {/* Pilot looks down at its notebook while it is writing in it */}
+      <Face mood={mood} look={look} down={agent === "pilot" && !bare && (mood === "thinking" || mood === "listening")} />
       {size >= 48 && <Extras mood={mood} color={a.color} />}
-      {!bare && size >= 40 && <Prop agent={agent} color={a.color} asleep={asleep} />}
+      {!bare && size >= 40 && <Prop agent={agent} mood={mood} color={a.color} />}
     </div>
   );
 }

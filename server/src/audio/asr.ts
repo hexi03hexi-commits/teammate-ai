@@ -29,6 +29,8 @@ import * as voiceprint from "./voiceprint.ts";
 export interface AsrSink {
   snapshot: { config: { speakers: Speaker[]; teamId?: string } | null };
   onUtterance(input: { speakerId: string; text: string; isFinal: boolean }): void;
+  /** 实时声纹跟踪认出了正在说话的人（不等语音识别出字）。可选。 */
+  onSpeaking?(speakerId: string): void;
 }
 
 export const SAMPLE_RATE = 16_000;
@@ -44,8 +46,17 @@ const RECONNECT_MS = 1_000;
 const MAX_BACKLOG_BYTES = SAMPLE_RATE * 2 * 5;
 /** 为声纹比对保留最近多少音频（3 分钟） */
 const MAX_KEPT_BYTES = SAMPLE_RATE * 2 * 180;
-/** 一个新声音攒到多少秒时去比对声纹：先用 2.5 秒试，没对上就等攒得更多再试 */
-const VOICE_TRY_AT = [2.5, 5, 10];
+/** 一个新声音至少攒够多少秒才比对声纹；没对上的话，每多攒这么多秒再试一次，最多试几次 */
+const VOICE_FIRST_TRY_S = 1.5;
+const VOICE_RETRY_EVERY_S = 1;
+const VOICE_MAX_TRIES = 10;
+/** 比对时只用这个声音最近的这么多秒：开头那一段常常混着别人的声音 */
+const VOICE_WINDOW_S = 6;
+/** 实时跟踪：每隔多久、用最近多长的声音去认“现在是谁在说话” */
+const TRACK_EVERY_MS = 400;
+const TRACK_WINDOW_S = 1.2;
+/** 实时跟踪只是点亮头像，认错的代价小，判定线可以比绑定名字时宽松（仍要求明显高于第二名） */
+const TRACK_THRESHOLD = 0.27;
 
 interface DgWord {
   word: string;
@@ -84,7 +95,8 @@ export class LiveAudio {
   /** 声纹确认过的：Deepgram 的说话人编号 → 成员 id */
   private confirmed = new Map<number, string>();
   /** 还没确认的声音：说话的时间段、累计秒数、已经比对过几次 */
-  private voices = new Map<number, { spans: [number, number][]; seconds: number; tries: number }>();
+  private voices = new Map<number, { spans: [number, number][]; seconds: number; tries: number; triedAt: number }>();
+  private tracker: NodeJS.Timeout | null = null;
   /** 这条连接上送出的音频（只留最近几分钟），用来按时间切出某个人的声音 */
   /** 这场会议开始时，哪些成员录过声纹 */
   private enrolledIds = new Set<string>();
@@ -120,6 +132,7 @@ export class LiveAudio {
         this.ws.send(JSON.stringify({ type: "KeepAlive" }));
       }
     }, KEEPALIVE_MS);
+    this.tracker = setInterval(() => this.track(), TRACK_EVERY_MS);
   }
 
   onAudioChunk(chunk: Buffer) {
@@ -140,6 +153,8 @@ export class LiveAudio {
     if (!this.active) return;
     this.active = false;
     if (this.keepalive) clearInterval(this.keepalive);
+    if (this.tracker) clearInterval(this.tracker);
+    this.tracker = null;
     if (this.reconnect) clearTimeout(this.reconnect);
     this.keepalive = this.reconnect = null;
     this.backlog = [];
@@ -316,7 +331,7 @@ export class LiveAudio {
     for (const w of words) {
       const k = w.speaker ?? 0;
       if (w.start === undefined || w.end === undefined || this.confirmed.has(k)) continue;
-      const v = this.voices.get(k) ?? { spans: [], seconds: 0, tries: 0 };
+      const v = this.voices.get(k) ?? { spans: [], seconds: 0, tries: 0, triedAt: 0 };
       const last = v.spans[v.spans.length - 1];
       if (last && w.start - last[1] < 0.3) last[1] = w.end;
       else v.spans.push([w.start, w.end]);
@@ -324,10 +339,34 @@ export class LiveAudio {
       this.voices.set(k, v);
     }
     for (const [k, v] of this.voices) {
-      if (this.confirmed.has(k) || v.tries >= VOICE_TRY_AT.length || v.seconds < VOICE_TRY_AT[v.tries]) continue;
+      if (this.confirmed.has(k) || v.tries >= VOICE_MAX_TRIES) continue;
+      if (v.seconds < VOICE_FIRST_TRY_S || v.seconds - v.triedAt < VOICE_RETRY_EVERY_S) continue;
       v.tries++;
-      this.nameByVoice(teamId, k, v.spans);
+      v.triedAt = v.seconds;
+      this.nameByVoice(teamId, k, recent(v.spans, VOICE_WINDOW_S));
     }
+  }
+
+  /**
+   * 实时跟踪：不等语音识别出字，直接拿最近一小段声音和声纹比，认出来就告诉界面“现在是这个人在说话”。
+   * 只对录过声纹的人有效；认不出就不出声，界面退回到用识别结果判断。
+   */
+  private track() {
+    const teamId = this.session.snapshot.config?.teamId;
+    if (!this.active || !teamId || !this.session.onSpeaking || !voiceprint.available()) return;
+    if (Date.now() - this.lastAudioAt > 600) return; // 麦克风没在送声音
+    const present = (this.session.snapshot.config?.speakers ?? []).map((sp) => sp.id).filter((id) => this.enrolledIds.has(id));
+    if (present.length === 0) return;
+    const want = Math.floor(TRACK_WINDOW_S * SAMPLE_RATE) * 2;
+    if (this.keptBytes < want) return;
+    const tail = Buffer.concat(this.kept.slice(-Math.ceil(want / 3200) - 1)).subarray(-want);
+    // 最近半秒要有人在出声，否则是停顿或背景噪音
+    const last = tail.subarray(-SAMPLE_RATE);
+    let sum = 0;
+    for (let i = 0; i < last.length; i += 2) sum += (last.readInt16LE(i) / 32768) ** 2;
+    if (Math.sqrt(sum / (last.length / 2)) < 0.012) return;
+    const { match } = voiceprint.identify(teamId, tail, present, 1, TRACK_THRESHOLD);
+    if (match) this.session.onSpeaking(match.memberId);
   }
 
   private nameByVoice(teamId: string, dgSpeaker: number, spans: [number, number][]) {
@@ -356,4 +395,15 @@ export class LiveAudio {
     this.voices.delete(dgSpeaker);
     log(`voice ${dgSpeaker} is ${name(match.memberId)} (${detail})`);
   }
+}
+
+/** 取最近的若干时间段，总长不超过 seconds 秒。 */
+function recent(spans: [number, number][], seconds: number): [number, number][] {
+  const out: [number, number][] = [];
+  let total = 0;
+  for (let i = spans.length - 1; i >= 0 && total < seconds; i--) {
+    out.unshift(spans[i]);
+    total += spans[i][1] - spans[i][0];
+  }
+  return out;
 }

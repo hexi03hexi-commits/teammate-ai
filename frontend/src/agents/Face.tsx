@@ -4,9 +4,11 @@ import type { Mood } from "./meta";
  * The face drawn over the body. viewBox is 100×100, matching the figure's box.
  * `look` shifts the gaze: -1 (left) … 1 (right).
  */
-export function Face({ mood, look = 0 }: { mood: Mood; look?: number }) {
+export function Face({ mood, look = 0, down = false }: { mood: Mood; look?: number; down?: boolean }) {
   const ink = "var(--blob-face)";
   const dx = look * 3;
+  // `down`: looking at something it holds in front of it (Pilot writing in its notebook)
+  const dy = down ? 4 : 0;
   const stroke = { stroke: ink, strokeWidth: 3.4, strokeLinecap: "round" as const, fill: "none" };
 
   let eyes;
@@ -18,7 +20,7 @@ export function Face({ mood, look = 0 }: { mood: Mood; look?: number }) {
         <path d="M57 49 L67 47" {...stroke} />
       </>
     );
-  } else if (mood === "thinking") {
+  } else if (mood === "thinking" && !down) {
     // Eyes open, looking up and to the side, towards the thought bubbles
     eyes = (
       <g style={{ transform: "translate(2.5px, -3.5px)", transition: "transform 0.5s cubic-bezier(.3,1.4,.5,1)" }}>
@@ -30,14 +32,14 @@ export function Face({ mood, look = 0 }: { mood: Mood; look?: number }) {
     );
   } else {
     eyes = (
-      <g style={{ transform: `translateX(${dx}px)`, transition: "transform 0.5s cubic-bezier(.3,1.4,.5,1)" }}>
+      <g style={{ transform: `translate(${dx}px, ${dy}px)`, transition: "transform 0.5s cubic-bezier(.3,1.4,.5,1)" }}>
         <g className="eye">
-          <ellipse cx="38" cy="48" rx="4.6" ry="6" fill={ink} />
-          <circle cx="39.6" cy="45.6" r="1.5" fill="#fff" opacity="0.9" />
+          <ellipse cx="38" cy="48" rx="4.6" ry={down ? 5.2 : 6} fill={ink} />
+          <circle cx={down ? 38.6 : 39.6} cy={down ? 50.6 : 45.6} r="1.5" fill="#fff" opacity="0.9" />
         </g>
         <g className="eye">
-          <ellipse cx="62" cy="48" rx="4.6" ry="6" fill={ink} />
-          <circle cx="63.6" cy="45.6" r="1.5" fill="#fff" opacity="0.9" />
+          <ellipse cx="62" cy="48" rx="4.6" ry={down ? 5.2 : 6} fill={ink} />
+          <circle cx={down ? 62.6 : 63.6} cy={down ? 50.6 : 45.6} r="1.5" fill="#fff" opacity="0.9" />
         </g>
       </g>
     );

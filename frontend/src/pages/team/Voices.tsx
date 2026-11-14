@@ -5,14 +5,15 @@ import { enrolVoice, forgetVoice, voiceStatus, type EnrolOutcome } from "../../l
 import type { Member } from "../../store/teams";
 import { Icon, IconButton, MemberAvatar } from "../../ui/kit";
 
-/** How long one self-introduction is recorded. Longer recordings are recognised more reliably. */
-const TAKE_MS = 6000;
+/** A recording runs until the person taps stop. It must be at least this long to be usable, and stops by itself at the maximum. */
+const TAKE_MIN_MS = 3000;
+const TAKE_MAX_MS = 20_000;
 const BARS = 28;
 
 /**
  * The people on the team, and their voices.
  *
- * Each person records one self-introduction. The recording goes to the session server, which
+ * Each person records one self-introduction, as long as they like (tap to stop). The recording goes to the session server, which
  * turns it into a voiceprint and keeps it there; during a meeting each new voice is compared
  * with those voiceprints to put the right name on it. Without a voiceprint, people are matched
  * by the order in which they first speak.
@@ -104,8 +105,11 @@ function VoiceRow({
   const [phase, setPhase] = useState<Phase>("idle");
   const [live, setLive] = useState<number[]>([]);
   const [progress, setProgress] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
   const cancel = useRef<() => void>(() => {});
-  useEffect(() => () => cancel.current(), []);
+  // Leaving the page mid-recording throws the take away
+  const abort = useRef<() => void>(() => {});
+  useEffect(() => () => abort.current(), []);
 
   const first = member.name.replace(/^Dr\.?\s+/i, "").split(/\s+/)[0];
   const isRecording = phase === "recording";
@@ -127,6 +131,7 @@ function VoiceRow({
       onRecording(false);
       setLive([]);
       setProgress(0);
+      setElapsed(0);
       if (!keep) return setPhase("idle");
 
       setPhase("sending");
@@ -145,7 +150,13 @@ function VoiceRow({
         setPhase(outcome === "too_quiet" || outcome === "too_short" ? "retry" : "blocked");
       }
     };
-    cancel.current = () => void finish(false);
+    abort.current = () => void finish(false);
+    // Tapping stop keeps the take if it is long enough; a shorter one is thrown away and asked for again
+    cancel.current = () => {
+      const longEnough = performance.now() - started >= TAKE_MIN_MS;
+      void finish(longEnough);
+      if (!longEnough) setPhase("retry");
+    };
 
     try {
       // Same capture path as a meeting: 16 kHz mono PCM in 100 ms chunks
@@ -169,8 +180,9 @@ function VoiceRow({
     onRecording(true);
     timer = window.setInterval(() => {
       const t = performance.now() - started;
-      setProgress(Math.min(1, t / TAKE_MS));
-      if (t >= TAKE_MS) void finish(true);
+      setProgress(Math.min(1, t / TAKE_MAX_MS));
+      setElapsed(t);
+      if (t >= TAKE_MAX_MS) void finish(true);
     }, 80);
   };
 
@@ -178,7 +190,7 @@ function VoiceRow({
   const bars = isRecording ? live : hasVoice ? (member.voice?.bars ?? []) : [];
   const icon = isRecording ? "stop" : phase === "blocked" ? "micOff" : phase === "retry" ? "redo" : hasVoice ? "check" : "mic";
   const title = isRecording
-    ? "Cancel"
+    ? "Stop"
     : phase === "blocked"
       ? "Microphone or voice server unavailable"
       : phase === "retry"
@@ -207,7 +219,7 @@ function VoiceRow({
               <input
                 value={member.skill ?? ""}
                 onChange={(e) => onSkill(e.target.value)}
-                placeholder="good at…"
+                placeholder="Good at…"
                 aria-label={`What ${member.name} is good at`}
                 maxLength={60}
                 className="mt-0.5 w-full bg-transparent text-[14px] text-ink-2 outline-none placeholder:text-ink-3"
@@ -217,6 +229,11 @@ function VoiceRow({
         </AnimatePresence>
       </div>
 
+      {isRecording && (
+        <span className="w-9 shrink-0 text-right text-[13px] font-semibold tabular-nums transition-colors" style={{ color: elapsed >= TAKE_MIN_MS ? "var(--ink)" : "var(--ink-3)" }}>
+          {Math.floor(elapsed / 1000)}s
+        </span>
+      )}
       {/* Level while recording; the saved outline afterwards */}
       <div className="flex h-9 w-[132px] shrink-0 items-center justify-end gap-[2.5px]" aria-hidden>
         {bars.map((v, i) => (
@@ -236,7 +253,7 @@ function VoiceRow({
         type="button"
         onClick={isRecording ? () => cancel.current() : record}
         disabled={busy || phase === "sending"}
-        aria-label={isRecording ? "Cancel recording" : hasVoice ? `Record ${member.name} again` : `Record ${member.name}`}
+        aria-label={isRecording ? "Stop recording" : hasVoice ? `Record ${member.name} again` : `Record ${member.name}`}
         title={title}
         className={`relative grid h-12 w-12 shrink-0 place-items-center rounded-full transition duration-200 enabled:hover:scale-105 enabled:active:scale-95 ${
           isRecording
@@ -300,8 +317,8 @@ function AddPerson({ onAdd }: { onAdd: (name: string, skill: string) => void }) 
       }}
       onKeyDown={(e) => e.key === "Escape" && close()}
     >
-      <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="name" aria-label="Name" maxLength={30} className="h-10 w-[30%] min-w-0 bg-transparent text-[16px] font-semibold text-ink outline-none placeholder:font-medium placeholder:text-ink-3" />
-      <input value={skill} onChange={(e) => setSkill(e.target.value)} placeholder="good at…" aria-label="Good at" maxLength={60} className="h-10 min-w-0 flex-1 bg-transparent text-[14px] text-ink-2 outline-none placeholder:text-ink-3" />
+      <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" aria-label="Name" maxLength={30} className="h-10 w-[30%] min-w-0 bg-transparent text-[16px] font-semibold text-ink outline-none placeholder:font-medium placeholder:text-ink-3" />
+      <input value={skill} onChange={(e) => setSkill(e.target.value)} placeholder="Good at…" aria-label="Good at" maxLength={60} className="h-10 min-w-0 flex-1 bg-transparent text-[14px] text-ink-2 outline-none placeholder:text-ink-3" />
       <IconButton icon="close" label="Cancel" size={36} onClick={close} />
       <button type="submit" disabled={!name.trim()} aria-label="Add" title="Add" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-ink text-bg! transition enabled:hover:scale-105 disabled:opacity-30">
         <Icon name="check" size={18} />

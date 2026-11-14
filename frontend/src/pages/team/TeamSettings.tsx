@@ -29,14 +29,14 @@ export function TeamSettings({ team, onClose }: { team: Team; onClose?: () => vo
           {/* The small figure shows which agent relies on the field */}
           <Field
             label="Target"
-            placeholder="how far should the work go?"
+            placeholder="How far should the work go?"
             value={team.scope}
             onChange={(scope) => updateTeam(team.id, { scope })}
             agent="pilot"
           />
           <Field
             label="Judging criteria"
-            placeholder="how will it be judged?"
+            placeholder="How will it be judged?"
             value={team.criteria}
             onChange={(criteria) => updateTeam(team.id, { criteria })}
             agent="pilot"
@@ -44,7 +44,7 @@ export function TeamSettings({ team, onClose }: { team: Team; onClose?: () => vo
           />
           <Field
             label="Track"
-            placeholder="industry or track"
+            placeholder="Industry or track"
             value={team.industry}
             onChange={(industry) => updateTeam(team.id, { industry })}
             agent="sage"

@@ -10,7 +10,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { DEMO_CONFIG, emptySnapshot, findCalledTeammate, TEAMMATE_IDS, type Card, type SessionConfig, type Utterance } from "@teammate/shared";
+import { DEMO_CONFIG, emptySnapshot, findCalledAgent, TEAMMATE_IDS, type Card, type SessionConfig, type Utterance } from "@teammate/shared";
 import { fmtClock, type MeetingContext } from "./context.ts";
 import { decide, newMemory } from "./orchestrator.ts";
 import { runRole } from "./roles.ts";
@@ -63,7 +63,8 @@ for (const [i, item] of items.entries()) {
   console.log(`\n[${fmtClock(u.t)}] ${u.speakerName}: ${u.text}`);
 
   // 和服务端一致：被点名时跳过主 agent，直接让那个队友回答
-  const called = findCalledTeammate(u.text);
+  const called = findCalledAgent(u.text);
+  if (called === "main") continue;
   if (called) {
     console.log(`    ▶ ${called.toUpperCase()} called by name`);
     if (withRoles) {

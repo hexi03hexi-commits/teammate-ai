@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
-import { TEAMMATE_IDS, type Card, type TeammateId } from "@teammate/shared";
+import { TEAMMATE_IDS, type AgentId, type Card, type TeammateId, type TeammateStatus } from "@teammate/shared";
 import { AgentFigure } from "../agents/AgentFigure";
 import { AGENTS, type Mood } from "../agents/meta";
 import type { Session } from "../hooks/useSession";
@@ -42,7 +42,7 @@ function useSize<T extends HTMLElement>() {
  *              supporting information). The grid adapts to how many are active.
  */
 export function MeetingPage({ session, team }: { session: Session; team: Team }) {
-  const { snapshot, send, sendAudio, heard, picked, connected } = session;
+  const { snapshot, send, sendAudio, heard, speaking, picked, connected } = session;
   const now = useNow(250);
   const [rootRef, size] = useSize<HTMLDivElement>();
   const live = snapshot.phase === "live";
@@ -57,7 +57,14 @@ export function MeetingPage({ session, team }: { session: Session; team: Team })
   useEffect(() => {
     if (heard) heardAt.current = Date.now();
   }, [heard]);
-  const talkingId = live && !paused && heard && now - heardAt.current < TALKING_MS ? heard.speakerId : null;
+  // Voice tracking reports the speaker within about a second; the transcript confirms it later and covers people without a voiceprint
+  const voiceAt = useRef(0);
+  useEffect(() => {
+    if (speaking) voiceAt.current = Date.now();
+  }, [speaking]);
+  const byVoice = speaking && now - voiceAt.current < 1200 ? speaking.speakerId : null;
+  const byTranscript = heard && now - heardAt.current < TALKING_MS ? heard.speakerId : null;
+  const talkingId = live && !paused ? (byVoice ?? byTranscript) : null;
   const members = snapshot.config?.speakers ?? team.members;
   const talkingIndex = members.findIndex((m) => m.id === talkingId);
 
@@ -68,7 +75,7 @@ export function MeetingPage({ session, team }: { session: Session; team: Team })
 
   /** The latest card of each agent that is still open for discussion */
   const latest = useMemo(() => {
-    const map = new Map<TeammateId, Card>();
+    const map = new Map<AgentId, Card>();
     for (const c of snapshot.cards) if (c.status === "active") map.set(c.teammate, c);
     return map;
   }, [snapshot.cards]);
@@ -87,11 +94,13 @@ export function MeetingPage({ session, team }: { session: Session; team: Team })
     }
   }, [paused]);
 
-  const anySpeaking = TEAMMATE_IDS.some((id) => snapshot.teammates[id].status === "speaking");
+  // The main agent can be on stage too, when it answers a question put to it
+  const statusOf = (a: AgentId): TeammateStatus => (a === "main" ? snapshot.main : snapshot.teammates[a].status);
+  const anySpeaking = snapshot.main === "speaking" || TEAMMATE_IDS.some((id) => snapshot.teammates[id].status === "speaking");
   const stations = live
     ? [...latest.values()]
         .filter((c) => {
-          const status = snapshot.teammates[c.teammate].status;
+          const status = statusOf(c.teammate);
           if (status === "speaking" || opened.has(c.id)) return true;
           if (closed.has(c.id) || c.level === 1) return false;
           return paused || now - (firstSeen.current.get(c.id) ?? now) < STATION_LIFE_MS;
@@ -111,8 +120,8 @@ export function MeetingPage({ session, team }: { session: Session; team: Team })
       return n;
     });
   };
-  const close = (card: Card, type: "adopt_card" | "dismiss_card") => {
-    send({ type, id: card.id });
+  /** Send an agent back to where it waits. Its card stays reachable by tapping it there. */
+  const close = (card: Card) => {
     setClosed((s) => new Set(s).add(card.id));
     setOpened((s) => {
       const n = new Set(s);
@@ -121,8 +130,47 @@ export function MeetingPage({ session, team }: { session: Session; team: Team })
     });
   };
 
+  // ───── Hand-offs: when Atlas calls an agent, a note flies from Atlas to it ─────
+  const mainRef = useRef<HTMLDivElement>(null);
+  const dockRefs = useRef(new Map<TeammateId, HTMLDivElement>());
+  const wasPreparing = useRef(new Set<TeammateId>());
+  const [notes, setNotes] = useState<{ id: number; to: TeammateId; from: { x: number; y: number }; dest: { x: number; y: number } }[]>([]);
+  const noteSeq = useRef(0);
+  useEffect(() => {
+    const root = rootRef.current?.getBoundingClientRect();
+    const main = mainRef.current?.getBoundingClientRect();
+    for (const id of TEAMMATE_IDS) {
+      const preparing = snapshot.teammates[id].status === "preparing";
+      const before = wasPreparing.current.has(id);
+      if (preparing) wasPreparing.current.add(id);
+      else wasPreparing.current.delete(id);
+      // it goes to wherever that agent is: on the stage if it already stepped forward, else its place in the dock
+      const onStage = rootRef.current?.querySelector(`[data-stage-agent="${id}"]`);
+      const slot = (onStage ?? dockRefs.current.get(id))?.getBoundingClientRect();
+      if (!preparing || before || !root || !main || !slot) continue;
+      const note = {
+        id: ++noteSeq.current,
+        to: id,
+        from: { x: main.left + main.width / 2 - root.left, y: main.top + main.height / 2 - root.top },
+        dest: { x: slot.left + slot.width / 2 - root.left, y: slot.top + slot.height / 2 - root.top },
+      };
+      setNotes((n) => [...n, note]);
+      window.setTimeout(() => setNotes((n) => n.filter((x) => x.id !== note.id)), 1100);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snapshot.teammates]);
+
   // ───── Main agent ─────
-  const mainMood: Mood = paused ? "asleep" : wrappingUp ? "thinking" : talkingId ? "listening" : "idle";
+  // Asked a question: thinking, then speaking. Otherwise it listens to whoever is talking.
+  const mainMood: Mood = paused
+    ? "asleep"
+    : wrappingUp || snapshot.main === "preparing"
+      ? "thinking"
+      : snapshot.main === "speaking"
+        ? "speaking"
+        : talkingId
+          ? "listening"
+          : "idle";
   // Look towards whoever is talking (members sit along the bottom left) or down at the stage
   // …or, when it has just called a teammate who is still getting ready, towards the dock on the right
   const someonePreparing = TEAMMATE_IDS.some((id) => snapshot.teammates[id].status === "preparing");
@@ -192,10 +240,11 @@ export function MeetingPage({ session, team }: { session: Session; team: Team })
 
         {/* ───── Main agent ───── */}
         <motion.div
+          ref={mainRef}
           className="absolute left-1/2 top-1/2 z-10"
           style={{ width: MAIN_SIZE, height: MAIN_SIZE, marginLeft: -MAIN_SIZE / 2, marginTop: -MAIN_SIZE / 2 }}
           initial={false}
-          animate={{ y: mainY, scale: staged ? mainSmall : 1 }}
+          animate={{ y: mainY, scale: staged ? mainSmall : 1, opacity: onStage.has("main") ? 0 : 1 }}
           transition={{ type: "spring", stiffness: 170, damping: 24 }}
         >
           <motion.div animate={{ y: [0, -7, 0] }} transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}>
@@ -243,7 +292,7 @@ export function MeetingPage({ session, team }: { session: Session; team: Team })
         >
           <AnimatePresence mode="popLayout">
             {stations.map((card) => {
-              const status = snapshot.teammates[card.teammate].status;
+              const status = statusOf(card.teammate);
               return (
                 <Station
                   key={card.teammate}
@@ -251,14 +300,38 @@ export function MeetingPage({ session, team }: { session: Session; team: Team })
                   status={status}
                   compact={compact}
                   dimmed={anySpeaking && status !== "speaking"}
-                  canAct
-                  onAdopt={() => close(card, "adopt_card")}
-                  onDismiss={() => close(card, "dismiss_card")}
+                  onSendBack={() => close(card)}
                 />
               );
             })}
           </AnimatePresence>
         </div>
+
+        {/* ───── Notes in flight: Atlas handing something to an agent ───── */}
+        <AnimatePresence>
+          {notes.map((n) => (
+            <motion.div
+              key={n.id}
+              className="pointer-events-none absolute left-0 top-0 z-30"
+              initial={{ x: n.from.x - 15, y: n.from.y - 18, scale: 0.4, opacity: 0, rotate: -20 }}
+              animate={{
+                x: [n.from.x - 15, (n.from.x + n.dest.x) / 2 - 15, n.dest.x - 15],
+                y: [n.from.y - 18, Math.min(n.from.y, n.dest.y) - 70, n.dest.y - 18],
+                scale: [0.4, 1.15, 0.55],
+                opacity: [0, 1, 1],
+                rotate: [-20, 8, 0],
+              }}
+              exit={{ opacity: 0, scale: 0.2, transition: { duration: 0.18 } }}
+              transition={{ duration: 0.85, ease: [0.3, 0, 0.3, 1], times: [0, 0.5, 1] }}
+            >
+              <svg viewBox="0 0 30 36" width="30" height="36" style={{ filter: "drop-shadow(0 4px 8px rgba(20,23,28,.25))" }} aria-hidden>
+                <path d="M4 1.5 H19 L28.5 11 V32 a2.5 2.5 0 0 1 -2.5 2.5 H4 A2.5 2.5 0 0 1 1.5 32 V4 A2.5 2.5 0 0 1 4 1.5 Z" fill="#fff" stroke="var(--blob-face)" strokeWidth="2" strokeLinejoin="round" />
+                <path d="M19 1.5 V11 H28.5" fill={AGENTS[n.to].color} stroke="var(--blob-face)" strokeWidth="2" strokeLinejoin="round" />
+                <path d="M7 18 H22 M7 23.5 H22 M7 29 H16" stroke={AGENTS[n.to].color} strokeWidth="2.2" strokeLinecap="round" />
+              </svg>
+            </motion.div>
+          ))}
+        </AnimatePresence>
 
         {/* ───── Bottom: people · controls · agents ───── */}
         <footer className={`absolute inset-x-0 bottom-0 z-20 flex items-end justify-between ${phone ? "px-4 pb-5" : "px-8 pb-7"}`}>
@@ -313,7 +386,14 @@ export function MeetingPage({ session, team }: { session: Session; team: Team })
               const preparing = !paused && t.status === "preparing";
               const mood: Mood = paused || t.status === "hidden" || t.status === "muted" ? "asleep" : preparing ? "thinking" : t.status === "has_something" ? "nudging" : "idle";
               return (
-                <div key={id} className="relative grid h-[62px] w-[62px] place-items-center">
+                <div
+                  key={id}
+                  ref={(el) => {
+                    if (el) dockRefs.current.set(id, el);
+                    else dockRefs.current.delete(id);
+                  }}
+                  className="relative grid h-[62px] w-[62px] place-items-center"
+                >
                   {/* the empty seat it leaves behind */}
                   <span className="absolute h-9 w-9 rounded-full transition-opacity duration-500" style={{ background: AGENTS[id].color, opacity: away ? 0.14 : 0 }} />
                   {!away && (

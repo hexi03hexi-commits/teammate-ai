@@ -48,6 +48,7 @@ const ws = new WebSocket(`ws://localhost:${process.env.PORT ?? DEFAULT_PORT}`);
 const t0 = Date.now();
 const at = () => ((Date.now() - t0) / 1000).toFixed(1).padStart(6);
 const send = (m: ClientMessage) => ws.send(JSON.stringify(m));
+let lastSpeaking = "";
 
 ws.on("error", (err) => {
   console.error("连不上服务端，它启动了吗？", err.message);
@@ -89,6 +90,11 @@ ws.on("message", (data, isBinary) => {
   switch (e.type) {
     case "transcript":
       if (e.utterance.isFinal) console.log(`${at()} heard    ${e.utterance.speakerName}: ${e.utterance.text}`);
+      return;
+    case "speaking":
+      // 只在换人时打印，看实时跟踪多快认出人
+      if (e.speakerId !== lastSpeaking) console.log(`${at()} speaking ${config.speakers.find((sp) => sp.id === e.speakerId)?.name ?? e.speakerId}`);
+      lastSpeaking = e.speakerId;
       return;
     case "keywords":
       return console.log(`${at()} keywords ${e.words.join(" · ")}`);

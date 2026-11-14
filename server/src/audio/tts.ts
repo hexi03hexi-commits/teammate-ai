@@ -1,4 +1,4 @@
-import type { TeammateId } from "@teammate/shared";
+import type { AgentId } from "@teammate/shared";
 
 /**
  * 把一句话合成为语音，返回主设备可以播放的音频地址。
@@ -8,6 +8,6 @@ import type { TeammateId } from "@teammate/shared";
  *
  * 现在返回 null：前端会用浏览器自带的 speechSynthesis 兜底，所以骨架阶段已经能出声。
  */
-export async function synthesize(_teammate: TeammateId, _text: string): Promise<string | null> {
+export async function synthesize(_teammate: AgentId, _text: string): Promise<string | null> {
   return null;
 }

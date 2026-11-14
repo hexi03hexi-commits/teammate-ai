@@ -54,7 +54,7 @@ export function Composer({ connected, team, onEditBrief, canStart, onCancel, onS
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         onKeyDown={(e) => e.key === "Escape" && onCancel?.()}
-        placeholder="what are we deciding?"
+        placeholder="What are we deciding?"
         aria-label="Meeting topic"
         required
         className="mt-8 w-full border-b-2 border-line bg-transparent pb-4 text-[34px] leading-tight font-semibold tracking-[-0.025em] text-ink outline-none transition-colors placeholder:text-ink-3/70 focus:border-ink/30"

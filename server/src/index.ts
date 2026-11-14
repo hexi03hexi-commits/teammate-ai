@@ -1,12 +1,13 @@
 import http from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
 import type { ClientMessage, ClientRole, ServerEvent } from "@teammate/shared";
-import { decide, extractKeywords, runRole, updatePersonas, writeDecision } from "@teammate/agents";
+import { askMain, decide, extractKeywords, runRole, updatePersonas, writeDecision } from "@teammate/agents";
 import { config } from "./config.ts";
 import { Session, type Brain } from "./session.ts";
 import { Replay } from "./replay.ts";
 import { LiveAudio } from "./audio/asr.ts";
 import * as voiceprint from "./audio/voiceprint.ts";
+import { forgetPersonas } from "./personaStore.ts";
 
 const clients = new Map<WebSocket, ClientRole>();
 
@@ -18,7 +19,7 @@ function broadcast(event: ServerEvent) {
 }
 
 // scripted 模式不调用模型；其余模式用真实 agent
-const brain: Brain | null = config.mode === "scripted" ? null : { decide, runRole, writeDecision, updatePersonas, extractKeywords };
+const brain: Brain | null = config.mode === "scripted" ? null : { decide, runRole, writeDecision, updatePersonas, extractKeywords, askMain };
 const session = new Session(broadcast, brain);
 const replay = new Replay(session);
 const audio = new LiveAudio(session);
@@ -61,6 +62,7 @@ function readBody(req: http.IncomingMessage, limit = 2_000_000): Promise<Buffer>
  *   GET    /voiceprints?team=ID            → { available, enrolled: [成员 id] }
  *   POST   /voiceprints?team=ID&member=ID  → 请求体是 16kHz 单声道 16 位 PCM；加 &replace=1 表示重录
  *   DELETE /voiceprints?team=ID&member=ID
+ *   DELETE /voiceprints?team=ID            → 团队被删除：清掉它的全部声纹和成员画像
  * 声纹只存在服务端，这些接口不返回声纹本身。
  */
 async function handleVoiceprints(req: http.IncomingMessage, res: http.ServerResponse, url: URL) {
@@ -74,6 +76,11 @@ async function handleVoiceprints(req: http.IncomingMessage, res: http.ServerResp
   if (!team) return json(400, { ok: false, reason: "missing team" });
   const usable = await voiceprint.ready();
   if (req.method === "GET") return json(200, { available: usable, enrolled: voiceprint.enrolled(team) });
+  if (!member && req.method === "DELETE") {
+    voiceprint.forgetTeam(team);
+    forgetPersonas(team);
+    return json(200, { ok: true });
+  }
   if (!member) return json(400, { ok: false, reason: "missing member" });
   if (req.method === "DELETE") {
     voiceprint.forget(team, member);

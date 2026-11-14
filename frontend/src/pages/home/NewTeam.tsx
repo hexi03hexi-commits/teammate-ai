@@ -45,7 +45,7 @@ export function NewTeam({ onCreate, onCancel }: { onCreate: (name: string) => vo
         autoFocus
         value={name}
         onChange={(e) => setName(e.target.value)}
-        placeholder="team name"
+        placeholder="Team name"
         aria-label="Team name"
         maxLength={40}
         className="h-12 w-full rounded-[18px] bg-surface px-4 text-[17px] font-semibold text-ink shadow-card outline-none placeholder:font-medium placeholder:text-ink-3"

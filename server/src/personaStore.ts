@@ -30,3 +30,13 @@ export function savePersonas(teamId: string, personas: Persona[]) {
   fs.mkdirSync(path.dirname(FILE), { recursive: true });
   fs.writeFileSync(FILE, JSON.stringify(store, null, 2));
 }
+
+/** 团队被删除：连同它的成员画像一起删掉 */
+export function forgetPersonas(teamId: string) {
+  const store = read();
+  if (store[teamId]) {
+    delete store[teamId];
+    fs.mkdirSync(path.dirname(FILE), { recursive: true });
+    fs.writeFileSync(FILE, JSON.stringify(store, null, 2));
+  }
+}

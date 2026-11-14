@@ -22,7 +22,6 @@ export function Minutes({ meeting, team, onFocusAgent }: { meeting: Meeting; tea
   const reduce = useReducedMotion();
   const d = meeting.decision;
   const entries = [...meeting.entries].sort((a, b) => a.t - b.t);
-  const adopted = entries.filter((e) => e.status === "adopted").length;
   const people = team.members.filter((m) => meeting.memberIds.includes(m.id));
   const absent = team.members.filter((m) => !meeting.memberIds.includes(m.id));
   const agents = TEAMMATE_IDS.filter((id) => meeting.agentIds.includes(id));
@@ -59,7 +58,7 @@ export function Minutes({ meeting, team, onFocusAgent }: { meeting: Meeting; tea
         <Fact label="Date" value={fmtDate(meeting.startedAt)} />
         <Fact label="Time" value={`${fmtTime(meeting.startedAt)} – ${fmtTime(meeting.startedAt + meeting.durationMs)}`} />
         <Fact label="Duration" value={`${minutes(meeting.durationMs)} · ${clock(meeting.durationMs)}`} />
-        <Fact label="Agent input" value={entries.length ? `${entries.length} raised · ${adopted} adopted` : "None"} />
+        <Fact label="Agent input" value={entries.length ? `${entries.length} contribution${entries.length === 1 ? "" : "s"}` : "None"} />
       </motion.dl>
 
       {/* ───── Attendees: people and agents ───── */}
@@ -215,28 +214,21 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
-const STATUS_LABEL = { adopted: "Adopted", dismissed: "Dismissed", active: "Open" } as const;
-
 function Entry({ entry: e, onFocus }: { entry: MinuteEntry; onFocus: (id: TeammateId | null) => void }) {
   const a = AGENTS[e.agent];
-  const dismissed = e.status === "dismissed";
-  const adopted = e.status === "adopted";
   return (
     <article
-      onPointerEnter={() => onFocus(e.agent)}
+      onPointerEnter={() => onFocus(e.agent === "main" ? null : e.agent)}
       onPointerLeave={() => onFocus(null)}
       className="relative flex gap-3.5 overflow-hidden rounded-[20px] py-3.5 pr-4 pl-5"
-      style={{
-        background: tint(a.color, dismissed ? 3 : 8),
-        boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${a.color} ${dismissed ? 8 : 18}%, transparent)`,
-      }}
+      style={{ background: tint(a.color, 8), boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${a.color} 18%, transparent)` }}
     >
       {/* colour rail */}
-      <span className="absolute inset-y-0 left-0 w-[4px]" style={{ background: a.color, opacity: dismissed ? 0.35 : 1 }} />
-      <div className="shrink-0 pt-0.5" style={{ opacity: dismissed ? 0.6 : 1 }}>
-        <AgentFigure agent={e.agent} mood={dismissed ? "asleep" : "idle"} size={40} />
+      <span className="absolute inset-y-0 left-0 w-[4px]" style={{ background: a.color }} />
+      <div className="shrink-0 pt-0.5">
+        <AgentFigure agent={e.agent} mood="idle" size={40} />
       </div>
-      <div className="min-w-0 flex-1" style={{ opacity: dismissed ? 0.6 : 1 }}>
+      <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 text-[13px] tabular-nums">
           <span className="font-bold" style={{ color: ink(a.color) }}>
             {a.name}
@@ -244,16 +236,9 @@ function Entry({ entry: e, onFocus }: { entry: MinuteEntry; onFocus: (id: Teamma
           <span className="text-ink-3">{a.role}</span>
           <span className="h-1 w-1 rounded-full bg-ink-3/50" />
           <span className="text-ink-3">{clock(e.t)}</span>
-          <span
-            className="ml-auto flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold"
-            style={adopted ? { background: tint(a.color, 24), color: ink(a.color) } : { background: "var(--surface)", color: "var(--ink-3)" }}
-          >
-            {adopted && <Icon name="check" size={11} />}
-            {STATUS_LABEL[e.status]}
-          </span>
         </div>
-        <h4 className={`mt-1 text-[16px] leading-snug font-semibold text-ink ${dismissed ? "line-through decoration-ink-3/60" : ""}`}>{e.title}</h4>
-        <p className="mt-0.5 text-[14.5px] leading-relaxed text-ink-2">{e.body}</p>
+        <h4 className="mt-1 text-[16px] leading-snug font-semibold text-ink">{e.title}</h4>
+        {e.body.trim() && <p className="mt-0.5 text-[14.5px] leading-relaxed text-ink-2">{e.body}</p>}
         {e.sources && e.sources.length > 0 && (
           <div className="mt-2.5 flex flex-wrap gap-1.5">
             {e.sources.map((s) => (

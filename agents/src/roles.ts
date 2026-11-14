@@ -13,7 +13,7 @@ const SHARED_RULES = `You are one of four AI teammates sitting in on a live hack
 
 Write:
 - title: the point in at most eight words. A plain statement, no question mark, no label like "Note:".
-- body: one to three short sentences, at most 45 words, with the specific fact, number or observation that makes the point worth their attention. Refer to what was actually said.
+- body: usually empty. It is a small box of supplementary information under your line, shown only when you have something concrete the spoken line cannot carry: the names of what you found, the actual numbers, the source of a finding, exact wording the team can use instead. Then write just that, at most 45 words, without restating the line. A challenge, a nudge about time or a question to the group stands on its own and needs no body.
 - say: one spoken sentence of at most 25 words, phrased as a question to the group rather than a verdict. It will be read aloud by a text-to-speech voice, so use plain words, no abbreviations, no symbols, no lists.
 
 You are a peer at the table, not an assistant: no greetings, no "great idea", no offers of further help, no hedging preamble. If you are not sure of something, say so in a few words rather than guessing.`;
@@ -67,7 +67,7 @@ async function runPlainRole(teammate: TeammateId, ctx: MeetingContext, brief: st
 
 const SCOUT_FORMAT = `After searching, reply with exactly these three lines and nothing else.:
 TITLE: <title>
-BODY: <body>
+BODY: <body, or leave empty after the colon if there is nothing to add>
 SAY: <say>`;
 
 /** Scout：带网页搜索。搜索结果自带引用，和结构化输出不能同时用，所以改用固定的三行文本格式。 */
@@ -102,8 +102,8 @@ async function runScout(ctx: MeetingContext, brief: string, level: InterventionL
 
   const pick = (label: string) => text.match(new RegExp(`${label}:\\s*(.+)`))?.[1]?.trim();
   const title = pick("TITLE");
-  const body = pick("BODY");
-  if (!title || !body) throw new Error(`scout: reply did not follow the TITLE/BODY/SAY format: ${text.slice(0, 200)}`);
+  const body = pick("BODY") ?? "";
+  if (!title) throw new Error(`scout: reply did not follow the TITLE/BODY/SAY format: ${text.slice(0, 200)}`);
   return { title, body, say: pick("SAY") ?? title, sources: [...sources.values()].slice(0, 3) };
 }
 

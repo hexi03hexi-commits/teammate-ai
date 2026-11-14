@@ -3,13 +3,15 @@ import type { ServerEvent, SessionSnapshot } from "@teammate/shared";
 /** Events that change session state. transcript / speak / error are side-channel only. */
 export type StateEvent = Extract<
   ServerEvent,
-  { type: "snapshot" | "teammate_state" | "card" | "card_update" | "decision" }
+  { type: "snapshot" | "teammate_state" | "main_state" | "card" | "card_update" | "decision" }
 >;
 
 export function reduceSession(s: SessionSnapshot, e: StateEvent): SessionSnapshot {
   switch (e.type) {
     case "snapshot":
       return e.snapshot;
+    case "main_state":
+      return { ...s, main: e.status };
     case "teammate_state":
       return { ...s, teammates: { ...s.teammates, [e.teammate]: e.state } };
     case "card": {

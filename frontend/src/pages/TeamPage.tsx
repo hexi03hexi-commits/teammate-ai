@@ -64,18 +64,29 @@ export function TeamPage({
     <div className="flex h-full flex-col">
       <header className="flex h-[88px] shrink-0 items-center gap-3 px-4 lg:px-6">
         <IconButton icon="back" label="Back" tone="glass" onClick={onBack} />
-        <h1 className="min-w-0 flex-1 truncate pl-1 text-[30px] font-semibold tracking-[-0.025em] text-ink">{team.name}</h1>
-        <ThemeToggle />
-        <IconButton
-          icon="sliders"
-          label="Team settings"
-          size={40}
-          tone={editing ? "solid" : "plain"}
+        {/* The team's name and its settings belong together: tap either to open the settings */}
+        <button
+          type="button"
+          aria-label="Team settings"
+          aria-pressed={editing}
           onClick={() => {
             setComposing(false);
             setEditing((v) => !v);
           }}
-        />
+          className="group flex min-w-0 items-center gap-3 rounded-full py-1 pr-1.5 pl-1 text-left outline-none"
+        >
+          <h1 className="min-w-0 truncate text-[30px] font-semibold tracking-[-0.025em] text-ink">{team.name}</h1>
+          <span
+            className={`flex h-10 shrink-0 items-center gap-2 rounded-full pr-4 pl-3 text-[14px] font-semibold transition duration-200 group-active:scale-95 ${
+              editing ? "bg-ink text-bg!" : "bg-surface text-ink-2 shadow-card group-hover:text-ink"
+            }`}
+          >
+            <Icon name="sliders" size={17} />
+            Team settings
+          </span>
+        </button>
+        <span className="flex-1" />
+        <ThemeToggle />
         <AnimatePresence initial={false}>
           {!composing && !editing && meetings.length > 0 && (
             <motion.button

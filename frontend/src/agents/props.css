@@ -1,0 +1,16 @@
+/* Motions for the objects in Prop.tsx that are not already in index.css. */
+
+/* Rebel's question mark hanging in the air */
+@keyframes prop-float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-7%) rotate(4deg); }
+}
+.prop-float { animation: prop-float 3.4s ease-in-out infinite; }
+
+/* Sage pushing its glasses back up while it works something out */
+@keyframes prop-adjust {
+  0%, 60%, 100% { transform: translateY(0) rotate(0deg); }
+  72% { transform: translateY(-7%) rotate(-2deg); }
+  84% { transform: translateY(1.5%) rotate(0deg); }
+}
+.prop-adjust { animation: prop-adjust 2.8s ease-in-out infinite; }

@@ -42,10 +42,25 @@ export interface TeammateState {
   override: TeammateOverride;
 }
 
+// ───────────────────────── 主 agent ─────────────────────────
+
+/**
+ * 主 agent：一直在听，负责叫出四个专长队友；也可以直接被提问（"Hey Atlas, …"）。
+ * 名字选了语音识别不容易听错、和四个队友发音都不像的。
+ */
+export const MAIN_AGENT = { id: "main", name: "Atlas", role: "Coordinator", color: "#0FB5DE" } as const;
+
+/** 主 agent 或四个队友之一 */
+export type AgentId = "main" | TeammateId;
+
+/** idle 在听；preparing 被问到了、正在想；speaking 正在回答 */
+export type MainStatus = "idle" | "preparing" | "speaking";
+
 // ───────────────────────── 点名与口头叫停 ─────────────────────────
 
-/** 语音识别可能把队友的名字写成什么。接上真实语音后，按识别结果里实际出现的写法增删。 */
-export const TEAMMATE_ALIASES: Record<TeammateId, string[]> = {
+/** 语音识别可能把名字写成什么。接上真实语音后，按识别结果里实际出现的写法增删。 */
+export const AGENT_ALIASES: Record<AgentId, string[]> = {
+  main: ["atlas"],
   pilot: ["pilot"],
   scout: ["scout", "scott"],
   sage: ["sage"],
@@ -55,13 +70,13 @@ export const TEAMMATE_ALIASES: Record<TeammateId, string[]> = {
 const GREETING = "(?:hey|hi|ok|okay)";
 
 /**
- * 这句话是不是在点名某个队友："Hey Scout, …" "Scout, check that".
+ * 这句话是不是在点名主 agent 或某个队友："Hey Atlas, …" "Scout, check that".
  * 只认开头的称呼或带招呼语的称呼，句子中间顺带提到名字不算。
  */
-export function findCalledTeammate(text: string): TeammateId | null {
+export function findCalledAgent(text: string): AgentId | null {
   const t = text.trim();
-  for (const id of TEAMMATE_IDS) {
-    const names = TEAMMATE_ALIASES[id].join("|");
+  for (const id of ["main", ...TEAMMATE_IDS] as AgentId[]) {
+    const names = AGENT_ALIASES[id].join("|");
     // 称呼后面必须是停顿或标点，避免 "Scouting report" 这类误中
     const after = String.raw`(?=$|[\s,.!?:])`;
     const gap = String.raw`[\s,]*`;
@@ -73,7 +88,7 @@ export function findCalledTeammate(text: string): TeammateId | null {
 
 /** 口头叫停："not now, guys". 返回 true 时让所有队友安静一会儿。 */
 export function isHushCommand(text: string): boolean {
-  return /\b(not now|hold on|be quiet|quiet please)\b/i.test(text) && /\b(pilot|scout|sage|rebel|teammates?|guys)\b/i.test(text);
+  return /\b(not now|hold on|be quiet|quiet please)\b/i.test(text) && /\b(atlas|pilot|scout|sage|rebel|teammates?|guys)\b/i.test(text);
 }
 
 // ───────────────────────── 会话 ─────────────────────────
@@ -129,7 +144,8 @@ export interface CardSource {
 
 export interface Card {
   id: string;
-  teammate: TeammateId;
+  /** 谁说的：四个队友之一，或主 agent（被直接提问时） */
+  teammate: AgentId;
   level: InterventionLevel;
   title: string;
   body: string;
@@ -172,6 +188,8 @@ export interface SessionSnapshot {
   /** 会议被暂停：不收音、不介入，计时也停住 */
   paused: boolean;
   teammates: Record<TeammateId, TeammateState>;
+  /** 主 agent 的状态 */
+  main: MainStatus;
   cards: Card[];
   decision: DecisionCard | null;
 }
@@ -181,7 +199,10 @@ export interface SessionSnapshot {
 export type ServerEvent =
   | { type: "snapshot"; snapshot: SessionSnapshot }
   | { type: "transcript"; utterance: Utterance }
+  /** 声纹实时认出了正在说话的人。比 transcript 快，只对录过声纹的人有。 */
+  | { type: "speaking"; speakerId: string }
   | { type: "teammate_state"; teammate: TeammateId; state: TeammateState }
+  | { type: "main_state"; status: MainStatus }
   /** 主 agent 从刚才的话里“听进去”的几个词，显示在它周围。没有值得显示的就不发。 */
   | { type: "keywords"; words: string[] }
   | { type: "card"; card: Card }
@@ -190,7 +211,7 @@ export type ServerEvent =
    * 只有主设备（host）播放。audioUrl 为空时前端用浏览器自带的 speechSynthesis 兜底。
    * 播放开始和结束时前端要回 speak_started / speak_done，服务端靠它屏蔽回声。
    */
-  | { type: "speak"; id: string; teammate: TeammateId; text: string; audioUrl?: string; cardId?: string }
+  | { type: "speak"; id: string; teammate: AgentId; text: string; audioUrl?: string; cardId?: string }
   | { type: "decision"; decision: DecisionCard }
   | { type: "error"; message: string };
 
@@ -221,7 +242,7 @@ export function emptySnapshot(): SessionSnapshot {
   const teammates = Object.fromEntries(
     TEAMMATE_IDS.map((id) => [id, { status: "hidden", override: "auto" } satisfies TeammateState]),
   ) as Record<TeammateId, TeammateState>;
-  return { phase: "setup", config: null, startedAt: null, paused: false, teammates, cards: [], decision: null };
+  return { phase: "setup", config: null, startedAt: null, paused: false, teammates, main: "idle", cards: [], decision: null };
 }
 
 /** 演示用配置，和 fixtures/brainstorm.json 里的对话配套 */

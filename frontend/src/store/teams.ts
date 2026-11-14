@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { DEMO_CONFIG, type Card, type CardSource, type CardStatus, type DecisionCard, type TeammateId } from "@teammate/shared";
+import { DEMO_CONFIG, type Card, type CardSource, type CardStatus, type AgentId, type DecisionCard, type TeammateId } from "@teammate/shared";
 
 /**
  * Teams and their past meetings. Kept in the browser (localStorage): the server only knows
@@ -23,7 +23,8 @@ export interface MinuteEntry {
   id: string;
   /** ms since the meeting started */
   t: number;
-  agent: TeammateId;
+  /** One of the four teammates, or the main agent when it answered a direct question */
+  agent: AgentId;
   title: string;
   body: string;
   sources?: CardSource[];
@@ -229,6 +230,10 @@ export function addMeeting(teamId: string, meeting: Omit<Meeting, "id">): Meetin
   const full: Meeting = { ...meeting, id: uid("m") };
   commit(teams.map((t) => (t.id === teamId ? { ...t, meetings: [full, ...t.meetings] } : t)));
   return full;
+}
+
+export function removeTeam(teamId: string) {
+  commit(teams.filter((t) => t.id !== teamId));
 }
 
 export function updateTeam(teamId: string, patch: Partial<Omit<Team, "id" | "meetings" | "members">>) {

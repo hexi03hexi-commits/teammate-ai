@@ -1,4 +1,4 @@
-import type { ClientMessage, ServerEvent, TeammateId } from "@teammate/shared";
+import type { ClientMessage, ServerEvent, AgentId } from "@teammate/shared";
 
 export type SpeakEvent = Extract<ServerEvent, { type: "speak" }>;
 type Send = (msg: ClientMessage) => void;
@@ -8,13 +8,14 @@ const SILENT_WAV =
   "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
 
 /** Fallback browser voices: a different voice + pitch/rate per teammate. */
-const VOICE_STYLE: Record<TeammateId, { pitch: number; rate: number; prefer: RegExp }> = {
+const VOICE_STYLE: Record<AgentId, { pitch: number; rate: number; prefer: RegExp }> = {
+  main: { pitch: 1.06, rate: 1.0, prefer: /zira|samantha|ava|google us english/i },
   pilot: { pitch: 1.0, rate: 1.02, prefer: /samantha|aria|jenny|google us english/i },
   scout: { pitch: 1.18, rate: 1.08, prefer: /daniel|guy|google uk english male/i },
   sage: { pitch: 0.82, rate: 0.94, prefer: /karen|moira|sonia|google uk english female/i },
   rebel: { pitch: 0.95, rate: 1.12, prefer: /alex|fred|ryan|rishi|tom/i },
 };
-const ORDER: TeammateId[] = ["pilot", "scout", "sage", "rebel"];
+const ORDER: AgentId[] = ["main", "pilot", "scout", "sage", "rebel"];
 
 /** Hard cap so a stuck player can never block the queue (and speak_done is always sent). */
 const AUDIO_TIMEOUT_MS = 30_000;
@@ -161,7 +162,7 @@ class SpeechQueue {
   }
 }
 
-function pickVoice(id: TeammateId): SpeechSynthesisVoice | null {
+function pickVoice(id: AgentId): SpeechSynthesisVoice | null {
   if (!("speechSynthesis" in window)) return null;
   const voices = window.speechSynthesis.getVoices().filter((v) => v.lang.toLowerCase().startsWith("en"));
   if (voices.length === 0) return null;
