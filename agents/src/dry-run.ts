@@ -3,7 +3,6 @@
  *
  *   npm run agents:dry                         # 用 fixtures/brainstorm.json
  *   npm run agents:dry -- path/to/other.json   # 换一段对话
- *   npm run agents:dry -- fixtures/brainstorm-zh.json   # 中文版
  *   npm run agents:dry -- --no-roles           # 只看主 agent 的决定，不生成卡片（更快更省）
  *
  * 改完提示词后重跑同一段对话，对比介入的时机和内容是变好还是变差。

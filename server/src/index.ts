@@ -1,7 +1,7 @@
 import http from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
 import type { ClientMessage, ClientRole, ServerEvent } from "@teammate/shared";
-import { decide, runRole, updatePersonas, writeDecision } from "@teammate/agents";
+import { decide, extractKeywords, runRole, updatePersonas, writeDecision } from "@teammate/agents";
 import { config } from "./config.ts";
 import { Session, type Brain } from "./session.ts";
 import { Replay } from "./replay.ts";
@@ -17,7 +17,7 @@ function broadcast(event: ServerEvent) {
 }
 
 // scripted 模式不调用模型；其余模式用真实 agent
-const brain: Brain | null = config.mode === "scripted" ? null : { decide, runRole, writeDecision, updatePersonas };
+const brain: Brain | null = config.mode === "scripted" ? null : { decide, runRole, writeDecision, updatePersonas, extractKeywords };
 const session = new Session(broadcast, brain);
 const replay = new Replay(session);
 const audio = new LiveAudio(session);

@@ -2,6 +2,7 @@ import {
   emptySnapshot,
   findCalledTeammate,
   isHushCommand,
+  TEAMMATE_ALIASES,
   TEAMMATE_IDS,
   type Card,
   type CardSource,
@@ -14,7 +15,7 @@ import {
   type TeammateStatus,
   type Utterance,
 } from "@teammate/shared";
-import { newMemory, type Decision, type MeetingContext, type Persona, type RoleOutput } from "@teammate/agents";
+import { newMemory, type Decision, type KeywordInput, type MeetingContext, type Persona, type RoleOutput } from "@teammate/agents";
 import { loadPersonas, savePersonas } from "./personaStore.ts";
 import { config } from "./config.ts";
 import { synthesize } from "./audio/tts.ts";
@@ -25,6 +26,7 @@ export interface Brain {
   runRole(teammate: TeammateId, ctx: MeetingContext, brief: string, level: InterventionLevel): Promise<RoleOutput>;
   writeDecision(ctx: MeetingContext): Promise<SessionSnapshot["decision"] & {}>;
   updatePersonas(ctx: MeetingContext, previous: Persona[]): Promise<Persona[]>;
+  extractKeywords(input: KeywordInput): Promise<string[]>;
 }
 
 interface PendingSpeak {
@@ -69,6 +71,17 @@ export class Session {
   private memory = newMemory();
   /** 成员画像：不公开，只传给主 agent，从不广播 */
   private personas: Persona[] = [];
+  /** 等一句话说完整：计时器和这一轮最早那句话的时间 */
+  private settleTimer: NodeJS.Timeout | null = null;
+  private settleSince = 0;
+  /** 只喊了名字、在等问题的队友 */
+  private pendingCall: { teammate: TeammateId; until: number } | null = null;
+  /** 关键词：还没看过的句子、已经显示过的词 */
+  private kwFresh: Utterance[] = [];
+  private kwShown: string[] = [];
+  private kwTimer: NodeJS.Timeout | null = null;
+  private kwSince = 0;
+  private kwBusy = false;
   private mutedUntil: Partial<Record<TeammateId, number>> = {};
   private speakQueue: PendingSpeak[] = [];
   private nowSpeaking: PendingSpeak | null = null;
@@ -224,6 +237,13 @@ export class Session {
     this.lastInterventionAt = {};
     this.lastAnyInterventionAt = 0;
     this.memory = newMemory();
+    if (this.settleTimer) clearTimeout(this.settleTimer);
+    if (this.kwTimer) clearTimeout(this.kwTimer);
+    this.settleTimer = this.kwTimer = null;
+    this.settleSince = this.kwSince = 0;
+    this.pendingCall = null;
+    this.kwFresh = [];
+    this.kwShown = [];
     this.mutedUntil = {};
     this.lastSpeakAt = 0;
     this.lastDecisionAt = 0;
@@ -271,34 +291,92 @@ export class Session {
     return false;
   }
 
-  private async think(u: Utterance) {
+  private think(u: Utterance) {
     if (!this.brain) return;
+    this.queueKeywords(u);
+
+    // 上一句只喊了名字（“Scout……”然后停了一下），这一句才是要问的话
+    if (this.pendingCall && Date.now() < this.pendingCall.until) {
+      const { teammate } = this.pendingCall;
+      this.pendingCall = null;
+      log(`  → ${teammate} got the question`);
+      void this.produce(teammate, 3, `${u.speakerName} called you by name and then asked: "${u.text}". Answer the question.`, true);
+      return;
+    }
 
     // 被点名：“Hey Scout, …”“Scout，帮我查一下”。点名优先于主动介入，跳过主 agent 和冷却。
     const called = findCalledTeammate(u.text);
     if (called) {
       if (this.snapshot.teammates[called].override === "off") return;
+      if (this.isBareCall(u.text)) {
+        // 只听到名字，问题还没说：先表示“我在听”，等下一句
+        log(`  → ${called} was called by name, waiting for the question`);
+        this.pendingCall = { teammate: called, until: Date.now() + config.callWaitMs };
+        if (this.snapshot.teammates[called].status !== "speaking") this.setStatus(called, "preparing");
+        return;
+      }
       log(`  → ${called} was called by name`);
       void this.produce(called, 3, `${u.speakerName} asked you directly: "${u.text}". Answer the question.`, true);
       return;
     }
 
-    // 主 agent 一次只跑一个；跑的过程中又有人说话，就在结束后再判断一次。
-    if (this.deciding) {
-      this.decideAgain = true;
-      return;
-    }
-    const wait = config.orchestratorMinIntervalMs - (Date.now() - this.lastDecisionAt);
-    if (wait > 0) {
-      this.decideAgain = true;
-      setTimeout(() => this.flushDecide(), wait);
-      return;
-    }
-    await this.runDecide();
+    // 等一句话说完整再让主 agent 判断。语音识别会在每次换气、每个“呃”处断句，
+    // 对着半句话判断既浪费又容易判错。有新的话进来就重新计时；一直有人说话时最多等 settleMaxMs。
+    this.decideAgain = true;
+    if (!this.settleSince) this.settleSince = Date.now();
+    if (this.settleTimer) clearTimeout(this.settleTimer);
+    const delay = Date.now() - this.settleSince >= config.settleMaxMs ? 0 : config.settleMs;
+    this.settleTimer = setTimeout(() => {
+      this.settleTimer = null;
+      this.settleSince = 0;
+      this.flushDecide();
+    }, delay);
+  }
+
+  /** 这句话是不是只有一个称呼，没有内容（“Scout”“嘿 Scout”）。 */
+  private isBareCall(text: string): boolean {
+    const names = TEAMMATE_IDS.flatMap((id) => TEAMMATE_ALIASES[id]).join("|");
+    const rest = text.replace(new RegExp(`(hey|hi|ok|okay|嘿|嗨|喂|诶|哎|${names})`, "gi"), "").replace(/[\s,，、。！？!?.:：]/g, "");
+    return rest.length < 3;
   }
 
   private flushDecide() {
     if (this.decideAgain && !this.deciding && this.snapshot.phase === "live") void this.runDecide();
+  }
+
+  // ───────────── 关键词 ─────────────
+
+  /** 攒一小批句子再挑关键词：和主 agent 一样等话说完整，碎句单独看挑不出东西。 */
+  private queueKeywords(u: Utterance) {
+    if (!this.brain) return;
+    this.kwFresh.push(u);
+    if (!this.kwSince) this.kwSince = Date.now();
+    if (this.kwTimer) clearTimeout(this.kwTimer);
+    const delay = Date.now() - this.kwSince >= config.settleMaxMs ? 0 : config.settleMs;
+    this.kwTimer = setTimeout(() => void this.flushKeywords(), delay);
+  }
+
+  private async flushKeywords() {
+    this.kwTimer = null;
+    if (!this.brain || this.kwBusy || this.kwFresh.length === 0 || this.snapshot.phase !== "live") return;
+    const fresh = this.kwFresh;
+    this.kwFresh = [];
+    this.kwSince = 0;
+    this.kwBusy = true;
+    try {
+      const earlier = this.transcript.filter((u) => !fresh.includes(u));
+      const words = await this.brain.extractKeywords({ config: this.snapshot.config!, earlier, fresh, shown: this.kwShown });
+      if (words.length && this.snapshot.phase === "live") {
+        this.kwShown.push(...words);
+        this.broadcast({ type: "keywords", words });
+        log(`  # ${words.join(" · ")}`);
+      }
+    } catch (err) {
+      log("keywords failed:", err);
+    } finally {
+      this.kwBusy = false;
+      if (this.kwFresh.length && !this.kwTimer) this.kwTimer = setTimeout(() => void this.flushKeywords(), config.settleMs);
+    }
   }
 
   private async runDecide() {
@@ -331,7 +409,8 @@ export class Session {
       log("orchestrator failed:", err);
     } finally {
       this.deciding = false;
-      this.flushDecide();
+      // 如果还在等一句话说完，就让计时器来触发，不抢跑
+      if (!this.settleTimer) this.flushDecide();
     }
   }
 
@@ -391,6 +470,13 @@ export class Session {
   private tick() {
     if (this.snapshot.phase !== "live" || this.snapshot.paused) return;
     const now = Date.now();
+
+    // 喊了名字却一直没说问题：不再等
+    if (this.pendingCall && now > this.pendingCall.until) {
+      const { teammate } = this.pendingCall;
+      this.pendingCall = null;
+      if (this.snapshot.teammates[teammate].status === "preparing") this.setStatus(teammate, this.restingStatus(teammate));
+    }
 
     // 静音到期
     for (const id of TEAMMATE_IDS) {

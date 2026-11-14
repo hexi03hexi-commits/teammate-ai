@@ -135,18 +135,16 @@ class SpeechQueue {
     const synth = window.speechSynthesis;
     const style = VOICE_STYLE[e.teammate];
     const u = new SpeechSynthesisUtterance(e.text);
-    // The line is spoken in whatever language the teammate wrote it in.
-    const zh = isChinese(e.text);
-    u.lang = zh ? "zh-CN" : "en-US";
+    u.lang = "en-US";
     u.pitch = style.pitch;
     u.rate = style.rate;
-    const voice = pickVoice(e.teammate, zh ? "zh" : "en");
+    const voice = pickVoice(e.teammate);
     if (voice) u.voice = voice;
     u.onstart = start;
     u.onend = finish;
     u.onerror = finish;
     // Some browsers never fire onend; estimate the duration generously.
-    arm(2500 + e.text.length * (zh ? 320 : 110));
+    arm(2500 + e.text.length * 110);
     synth.cancel();
     synth.speak(u);
     // Safari sometimes skips onstart.
@@ -163,21 +161,11 @@ class SpeechQueue {
   }
 }
 
-/** Mostly Chinese characters: needs a Chinese voice, and takes longer per character to say. */
-function isChinese(text: string): boolean {
-  const han = text.match(/[一-鿿]/g)?.length ?? 0;
-  return han > text.length * 0.3;
-}
-
-function pickVoice(id: TeammateId, lang: "en" | "zh"): SpeechSynthesisVoice | null {
+function pickVoice(id: TeammateId): SpeechSynthesisVoice | null {
   if (!("speechSynthesis" in window)) return null;
-  const all = window.speechSynthesis.getVoices().filter((v) => v.lang.toLowerCase().startsWith(lang));
-  // Mainland Mandarin first; a device may also carry Cantonese and Taiwanese voices under "zh".
-  const mainland = all.filter((v) => /zh[-_](cn|hans)/i.test(v.lang));
-  const voices = lang === "zh" && mainland.length ? mainland : all;
+  const voices = window.speechSynthesis.getVoices().filter((v) => v.lang.toLowerCase().startsWith("en"));
   if (voices.length === 0) return null;
-  // Devices rarely have four Chinese voices: teammates then share voices and differ by pitch and rate.
-  const preferred = lang === "en" ? voices.find((v) => VOICE_STYLE[id].prefer.test(v.name)) : undefined;
+  const preferred = voices.find((v) => VOICE_STYLE[id].prefer.test(v.name));
   return preferred ?? voices[ORDER.indexOf(id) % voices.length] ?? null;
 }
 

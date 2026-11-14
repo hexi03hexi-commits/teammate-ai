@@ -34,6 +34,8 @@ ws.on("message", (data) => {
       return console.log(at(), "state   ", e.teammate, "→", e.state.status);
     case "card":
       return console.log(at(), "card    ", e.card.teammate, `L${e.card.level}`, "—", e.card.title);
+    case "keywords":
+      return console.log(at(), "keywords", e.words.join(" · "));
     case "card_update":
       return console.log(at(), "card    ", e.id, "→", e.status);
     case "speak":

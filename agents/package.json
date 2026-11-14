@@ -11,7 +11,8 @@
   "scripts": {
     "dry": "tsx src/dry-run.ts",
     "typecheck": "tsc --noEmit -p .",
-    "eval": "tsx src/eval.ts"
+    "eval": "tsx src/eval.ts",
+    "keywords": "tsx src/keywords-try.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.8.0",

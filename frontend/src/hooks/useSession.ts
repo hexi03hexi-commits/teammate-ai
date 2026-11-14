@@ -14,12 +14,15 @@ export interface Session {
   sendAudio: (pcm: ArrayBuffer) => void;
   /** The most recent thing someone said. Drives "who is talking" and the keyword chips; the sentence itself is never shown. */
   heard: Utterance | null;
+  /** The latest terms the server picked out of what was said (live and replay modes). `n` changes with every batch. */
+  picked: { n: number; words: string[] } | null;
 }
 
 export function useSession(opts: { onSpeak?: (e: SpeakEvent) => void } = {}): Session {
   const [snapshot, dispatch] = useReducer(reduceSession, undefined, emptySnapshot);
   const [connected, setConnected] = useState(false);
   const [heard, setHeard] = useState<Utterance | null>(null);
+  const [picked, setPicked] = useState<{ n: number; words: string[] } | null>(null);
   const socket = useRef<WebSocket | null>(null);
   const onSpeak = useRef(opts.onSpeak);
   useEffect(() => {
@@ -30,6 +33,9 @@ export function useSession(opts: { onSpeak?: (e: SpeakEvent) => void } = {}): Se
     switch (e.type) {
       case "transcript":
         setHeard(e.utterance);
+        return;
+      case "keywords":
+        setPicked((p) => ({ n: (p?.n ?? 0) + 1, words: e.words }));
         return;
       case "speak":
         if (ROLE === "host") onSpeak.current?.(e);
@@ -87,5 +93,5 @@ export function useSession(opts: { onSpeak?: (e: SpeakEvent) => void } = {}): Se
     if (ws?.readyState === WebSocket.OPEN && ws.bufferedAmount < 256_000) ws.send(pcm);
   }, []);
 
-  return { snapshot, connected, send, sendAudio, heard };
+  return { snapshot, connected, send, sendAudio, heard, picked };
 }

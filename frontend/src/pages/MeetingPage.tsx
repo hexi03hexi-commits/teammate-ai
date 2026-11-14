@@ -42,7 +42,7 @@ function useSize<T extends HTMLElement>() {
  *              supporting information). The grid adapts to how many are active.
  */
 export function MeetingPage({ session, team }: { session: Session; team: Team }) {
-  const { snapshot, send, sendAudio, heard, connected } = session;
+  const { snapshot, send, sendAudio, heard, picked, connected } = session;
   const now = useNow(250);
   const [rootRef, size] = useSize<HTMLDivElement>();
   const live = snapshot.phase === "live";
@@ -127,7 +127,9 @@ export function MeetingPage({ session, team }: { session: Session; team: Team })
   // …or, when it has just called a teammate who is still getting ready, towards the dock on the right
   const someonePreparing = TEAMMATE_IDS.some((id) => snapshot.teammates[id].status === "preparing");
   const mainLook = talkingIndex >= 0 ? -0.9 + (talkingIndex / Math.max(1, members.length - 1)) * 0.8 : someonePreparing ? 0.9 : 0;
-  const chips = useKeywordChips(heard, live && !paused && !staged);
+  // With real agents the server picks the terms; in scripted mode (no model) the browser guesses words itself
+  const serverPicks = serverMode !== null && serverMode !== "scripted";
+  const chips = useKeywordChips(heard, picked, serverPicks, live && !paused && !staged);
 
   // ───── Layout ─────
   const narrow = size.w < 900;

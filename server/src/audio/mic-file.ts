@@ -4,10 +4,10 @@
  * 录音 → WebSocket → 服务端 → Deepgram → 主 agent → 角色 agent → 卡片 / 发声 / 纪要。
  *
  * 先用 live 模式启动服务端（需要 DEEPGRAM_API_KEY 和 ANTHROPIC_API_KEY）：
- *   MODE=live ASR_LANGUAGE=zh-CN npm run start -w server
+ *   MODE=live npm run start -w server
  * 然后：
  *   npm run mic:file -w server -- recordings/meeting.wav
- *   npm run mic:file -w server -- recordings/meeting.m4a --speakers 小王,小李,小张 --minutes 15
+ *   npm run mic:file -w server -- recordings/meeting.m4a --speakers Henry,Ava,Ben --minutes 15
  *
  * 说话人按出现顺序对应 --speakers 里的名字。不要同时开着主设备的页面，否则会有两个麦克风。
  */
@@ -87,6 +87,8 @@ ws.on("message", (data, isBinary) => {
     case "transcript":
       if (e.utterance.isFinal) console.log(`${at()} heard    ${e.utterance.speakerName}: ${e.utterance.text}`);
       return;
+    case "keywords":
+      return console.log(`${at()} keywords ${e.words.join(" · ")}`);
     case "teammate_state":
       if (e.state.status === "preparing") console.log(`${at()} state    ${e.teammate} is preparing`);
       return;

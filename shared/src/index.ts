@@ -44,45 +44,36 @@ export interface TeammateState {
 
 // ───────────────────────── 点名与口头叫停 ─────────────────────────
 
-/**
- * 语音识别可能把队友的名字写成什么。英文名之外是中文识别下常见的音译，
- * 属于猜测：接上真实语音后，按识别结果里实际出现的写法增删。
- */
+/** 语音识别可能把队友的名字写成什么。接上真实语音后，按识别结果里实际出现的写法增删。 */
 export const TEAMMATE_ALIASES: Record<TeammateId, string[]> = {
-  pilot: ["pilot", "派洛特", "派勒特", "拍洛特", "派乐特"],
-  scout: ["scout", "scott", "斯考特", "史考特", "斯高特", "司考特"],
-  sage: ["sage", "赛吉", "塞吉", "赛奇", "塞奇"],
-  rebel: ["rebel", "瑞贝尔", "雷贝尔", "瑞博", "瑞波"],
+  pilot: ["pilot"],
+  scout: ["scout", "scott"],
+  sage: ["sage"],
+  rebel: ["rebel"],
 };
 
-const GREETING = "(?:hey|hi|ok|okay|嘿|嗨|喂|诶|哎)";
+const GREETING = "(?:hey|hi|ok|okay)";
 
 /**
- * 这句话是不是在点名某个队友：“Hey Scout, …”“Scout，帮我查一下”“嘿 Scout”。
+ * 这句话是不是在点名某个队友："Hey Scout, …" "Scout, check that".
  * 只认开头的称呼或带招呼语的称呼，句子中间顺带提到名字不算。
  */
 export function findCalledTeammate(text: string): TeammateId | null {
   const t = text.trim();
   for (const id of TEAMMATE_IDS) {
     const names = TEAMMATE_ALIASES[id].join("|");
-    // 称呼后面必须是停顿、标点或中文，避免 "Scouting report" 这类误中
-    const after = String.raw`(?=$|[\s,，、。！？!?:：]|[一-鿿])`;
-    const gap = String.raw`[\s,，]*`;
+    // 称呼后面必须是停顿或标点，避免 "Scouting report" 这类误中
+    const after = String.raw`(?=$|[\s,.!?:])`;
+    const gap = String.raw`[\s,]*`;
     const called = new RegExp(`^(?:${GREETING}${gap})?(?:${names})${after}|${GREETING}${gap}(?:${names})${after}`, "i");
     if (called.test(t)) return id;
   }
   return null;
 }
 
-/** 口头叫停：“not now, guys”“先别说”。返回 true 时让所有队友安静一会儿。 */
+/** 口头叫停："not now, guys". 返回 true 时让所有队友安静一会儿。 */
 export function isHushCommand(text: string): boolean {
-  if (/(先别说|先不要说|别说话|安静一下|先安静)/.test(text)) return true;
   return /\b(not now|hold on|be quiet|quiet please)\b/i.test(text) && /\b(pilot|scout|sage|rebel|teammates?|guys)\b/i.test(text);
-}
-
-/** 文本里有没有中日韩文字。用来选朗读的语言、切关键词的方式。 */
-export function hasCjk(text: string): boolean {
-  return /[㐀-鿿]/.test(text);
 }
 
 // ───────────────────────── 会话 ─────────────────────────
@@ -191,6 +182,8 @@ export type ServerEvent =
   | { type: "snapshot"; snapshot: SessionSnapshot }
   | { type: "transcript"; utterance: Utterance }
   | { type: "teammate_state"; teammate: TeammateId; state: TeammateState }
+  /** 主 agent 从刚才的话里“听进去”的几个词，显示在它周围。没有值得显示的就不发。 */
+  | { type: "keywords"; words: string[] }
   | { type: "card"; card: Card }
   | { type: "card_update"; id: string; status: CardStatus }
   /**

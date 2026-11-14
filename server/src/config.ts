@@ -39,6 +39,10 @@ export const config = {
   teammateCooldownMs: ms(45_000),
   /** 任意两个队友主动介入之间的最短间隔（点名不受限），防止扎堆 */
   interventionGapMs: ms(18_000),
-  /** 主 agent 两次判断之间的最短间隔 */
-  orchestratorMinIntervalMs: ms(4_000),
+  /** 一句话说完后再等多久才让主 agent 判断（期间有新的话就重新计时）。语音识别断句很碎，等一下才是完整的意思 */
+  settleMs: ms(1_200),
+  /** 一直有人说话时，最多攒这么久就判断一次 */
+  settleMaxMs: ms(6_000),
+  /** 只喊了队友的名字、还没说问题时，等下一句话等多久 */
+  callWaitMs: ms(10_000),
 };

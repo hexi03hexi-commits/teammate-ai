@@ -43,12 +43,12 @@ npm run dev
 
 ### live 模式
 
-在 `.env` 里设 `MODE=live`，并用 `ASR_LANGUAGE` 指定会议语言（默认 `en`，中文用 `zh-CN`）。Deepgram 没有中英混说模式，中文会议里的英文术语可能识别不准。
+在 `.env` 里设 `MODE=live`。语音识别按英语进行，会议请用英语。
 
 - **谁是谁**：语音识别只能分出"第几个开口的人"。开场请大家按名单顺序各说一句，之后的发言就会对应到名字。
 - **麦克风权限**：浏览器只在 https 或 `localhost` 下允许用麦克风。iPad 通过局域网访问时，用 `npm run dev:https -w frontend` 启动页面（自签证书，首次打开要点一次"继续访问"），然后打开 `https://<电脑的局域网 IP>:5173`。页面右上角出现麦克风图标表示正在收音，红色表示被拦了。
-- **不用浏览器测试识别**：`npm run asr:file -w server -- recordings/某段录音.wav --speakers 小王,小李`，把一段录音按实时速度送进同一条链路，只打印识别结果，不调用 agent。加 `--speed 3` 可以快进。
-- **不用浏览器测试整条链路**：先以 live 模式启动服务端，再运行 `npm run mic:file -w server -- recordings/某段录音.wav --speakers 小王,小李 --minutes 15`。它把录音当作主设备的麦克风：识别、主 agent、角色 agent、会后纪要都真实运行（会调用两家的 API），结果打印在终端。
+- **不用浏览器测试识别**：`npm run asr:file -w server -- recordings/某段录音.wav --speakers Henry,Ava`，把一段录音按实时速度送进同一条链路，只打印识别结果，不调用 agent。加 `--speed 3` 可以快进。
+- **不用浏览器测试整条链路**：先以 live 模式启动服务端，再运行 `npm run mic:file -w server -- recordings/某段录音.wav --speakers Henry,Ava --minutes 15`。它把录音当作主设备的麦克风：识别、主 agent、角色 agent、会后纪要都真实运行（会调用两家的 API），结果打印在终端。
 
 ## 结构
 

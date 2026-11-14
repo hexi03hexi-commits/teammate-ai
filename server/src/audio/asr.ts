@@ -18,7 +18,6 @@ import type { Speaker } from "@teammate/shared";
  *
  * 环境变量：
  *   DEEPGRAM_API_KEY  必填
- *   ASR_LANGUAGE      识别语言，默认 en。中文会议用 zh-CN。Deepgram 没有中英混说模式。
  *   ASR_MODEL         默认 nova-3
  */
 
@@ -72,10 +71,8 @@ export class LiveAudio {
   /** Deepgram 的说话人编号 → 第几个出现 */
   private speakerOrder = new Map<number, number>();
 
-  private readonly language = process.env.ASR_LANGUAGE || "en";
+  private readonly language = "en";
   private readonly model = process.env.ASR_MODEL || "nova-3";
-  /** 中文、日文词与词之间不加空格 */
-  private readonly joiner = /^(zh|ja)/i.test(this.language) ? "" : " ";
 
   constructor(private session: AsrSink) {}
 
@@ -210,7 +207,7 @@ export class LiveAudio {
       const first = runs[0];
       if (!first && !this.pending) return;
       const speaker = this.pending?.speaker ?? first!.speaker;
-      const text = this.join(this.pending?.text ?? "", runs.map((r) => r.text).join(this.joiner));
+      const text = this.join(this.pending?.text ?? "", runs.map((r) => r.text).join(" "));
       if (text) this.session.onUtterance({ speakerId: this.speakerId(speaker), text, isFinal: false });
       return;
     }
@@ -241,7 +238,7 @@ export class LiveAudio {
   }
 
   private join(a: string, b: string) {
-    return a && b ? a + this.joiner + b : a || b;
+    return a && b ? a + " " + b : a || b;
   }
 
   private flush() {

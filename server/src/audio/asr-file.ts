@@ -2,11 +2,10 @@
  * 用一段录音测试语音识别，不需要浏览器，也不调用 agent：
  *
  *   npm run asr:file -w server -- recordings/meeting.wav
- *   npm run asr:file -w server -- recordings/meeting.m4a --speed 4 --speakers 小王,小李,小张
+ *   npm run asr:file -w server -- recordings/meeting.m4a --speed 4 --speakers Henry,Ava,Ben
  *
  * 音频用 ffmpeg 转成和浏览器麦克风一样的格式（16kHz 单声道 16 位 PCM），
  * 按实时速度送进 LiveAudio.onAudioChunk，所以录音和真麦克风走完全相同的链路。
- * 语言用 .env 里的 ASR_LANGUAGE。
  */
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
