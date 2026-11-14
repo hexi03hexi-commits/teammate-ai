@@ -10,6 +10,8 @@ export interface Session {
   snapshot: SessionSnapshot;
   connected: boolean;
   send: (msg: ClientMessage) => void;
+  /** Host only: one chunk of microphone audio (16 kHz mono 16-bit PCM). */
+  sendAudio: (pcm: ArrayBuffer) => void;
   /** The most recent thing someone said. Drives "who is talking" and the keyword chips; the sentence itself is never shown. */
   heard: Utterance | null;
 }
@@ -79,5 +81,11 @@ export function useSession(opts: { onSpeak?: (e: SpeakEvent) => void } = {}): Se
     else console.warn("[ws] dropped (offline)", msg.type);
   }, []);
 
-  return { snapshot, connected, send, heard };
+  const sendAudio = useCallback((pcm: ArrayBuffer) => {
+    const ws = socket.current;
+    // Audio is only useful live: drop it while offline or while the socket is backed up.
+    if (ws?.readyState === WebSocket.OPEN && ws.bufferedAmount < 256_000) ws.send(pcm);
+  }, []);
+
+  return { snapshot, connected, send, sendAudio, heard };
 }

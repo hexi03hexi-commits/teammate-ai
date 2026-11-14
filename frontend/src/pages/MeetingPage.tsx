@@ -4,10 +4,11 @@ import { TEAMMATE_IDS, type Card, type TeammateId } from "@teammate/shared";
 import { AgentFigure } from "../agents/AgentFigure";
 import { AGENTS, type Mood } from "../agents/meta";
 import type { Session } from "../hooks/useSession";
+import { useMic, useServerMode } from "../hooks/useMic";
 import { useNow } from "../hooks/useNow";
 import { IS_HOST } from "../lib/env";
 import type { Team } from "../store/teams";
-import { clock, IconButton, MemberAvatar } from "../ui/kit";
+import { clock, Icon, IconButton, MemberAvatar } from "../ui/kit";
 import { CHIP_SLOTS, useKeywordChips } from "./meeting/keywords";
 import { SPRING, Station } from "./meeting/Station";
 
@@ -41,11 +42,14 @@ function useSize<T extends HTMLElement>() {
  *              supporting information). The grid adapts to how many are active.
  */
 export function MeetingPage({ session, team }: { session: Session; team: Team }) {
-  const { snapshot, send, heard, connected } = session;
+  const { snapshot, send, sendAudio, heard, connected } = session;
   const now = useNow(250);
   const [rootRef, size] = useSize<HTMLDivElement>();
   const live = snapshot.phase === "live";
   const paused = snapshot.paused;
+  // The host's microphone feeds the meeting, but only when the server is really listening.
+  const serverMode = useServerMode(connected);
+  const mic = useMic(IS_HOST && serverMode === "live" && live && !paused && connected, sendAudio);
   const wrappingUp = snapshot.phase === "ended";
 
   // ───── Who is talking ─────
@@ -163,6 +167,16 @@ export function MeetingPage({ session, team }: { session: Session; team: Team })
               {clock(elapsed)}
             </span>
             {total > 0 && <span className="text-ink-3">{clock(total)}</span>}
+            {mic !== "off" && (
+              <span
+                className="ml-1 flex items-center gap-1.5 text-[13px]"
+                style={{ color: mic === "blocked" ? "#ff5a4f" : "var(--ink-3)" }}
+                title={mic === "blocked" ? "Microphone blocked: open this page over https and allow microphone access" : "Listening"}
+              >
+                <Icon name={mic === "blocked" ? "micOff" : "mic"} size={16} />
+                {mic === "blocked" && "Mic blocked"}
+              </span>
+            )}
             <span
               className="ml-1 h-2 w-2 rounded-full transition-colors"
               style={{ background: connected ? "#2fbf8f" : "#ff5a4f" }}

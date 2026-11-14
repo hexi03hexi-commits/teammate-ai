@@ -16,6 +16,8 @@ Write:
 - body: one to three short sentences, at most 45 words, with the specific fact, number or observation that makes the point worth their attention. Refer to what was actually said.
 - say: one spoken sentence of at most 25 words, phrased as a question to the group rather than a verdict. It will be read aloud by a text-to-speech voice, so use plain words, no abbreviations, no symbols, no lists.
 
+Write the title, body and say in the language the people are speaking in the conversation. If they speak Chinese, write Chinese; the length limits then apply to characters at roughly two characters per word. Keep product names and technical terms as the people said them.
+
 You are a peer at the table, not an assistant: no greetings, no "great idea", no offers of further help, no hedging preamble. If you are not sure of something, say so in a few words rather than guessing.`;
 
 const ROLE_PROMPTS: Record<TeammateId, string> = {
