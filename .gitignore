@@ -4,3 +4,4 @@ dist
 *.log
 recordings/*.wav
 reference/
+demo/out/

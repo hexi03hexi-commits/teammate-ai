@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Teammate AI — walkthrough</title>
+    <!--
+      Stage for the recorded walkthrough (demo/record.mjs): the app inside an iPad frame,
+      with the list of steps and a caption beside it. Dev only; not part of the product.
+      Open http://localhost:5173/demo/ipad.html to look at it by hand.
+    -->
+    <style>
+      @font-face {
+        font-family: "Urbanist";
+        src: url("/node_modules/@fontsource-variable/urbanist/files/urbanist-latin-wght-normal.woff2") format("woff2");
+        font-weight: 100 900;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; }
+      body {
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        font-family: "Urbanist", system-ui, sans-serif;
+        color: #14171c;
+        background: radial-gradient(1200px 800px at 72% 40%, #ffffff 0%, #eceef2 55%, #dfe2e8 100%);
+        -webkit-font-smoothing: antialiased;
+      }
+      .stage { position: absolute; inset: 0; display: flex; align-items: center; gap: 72px; padding: 0 84px; }
+
+      /* ── left: steps ── */
+      .side { width: 420px; flex: none; }
+      .brand { font-size: 30px; font-weight: 700; letter-spacing: -0.02em; }
+      .brand span { color: #9da2ad; font-weight: 500; }
+      .steps { list-style: none; margin: 44px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+      .steps li {
+        display: flex; align-items: center; gap: 14px;
+        padding: 11px 16px; border-radius: 18px;
+        font-size: 19px; font-weight: 600; color: #9da2ad;
+        transition: background .45s, color .45s, transform .45s cubic-bezier(.2,.8,.2,1), box-shadow .45s;
+      }
+      .steps li i {
+        flex: none; width: 28px; height: 28px; border-radius: 50%;
+        display: grid; place-items: center;
+        font-style: normal; font-size: 13px; font-weight: 700;
+        background: rgba(20,23,28,.06); color: #9da2ad;
+        transition: background .45s, color .45s;
+      }
+      .steps li.done { color: #5d636f; }
+      .steps li.done i { background: #14171c; color: #fff; }
+      .steps li.on {
+        color: #14171c; background: #fff; transform: translateX(8px);
+        box-shadow: 0 1px 2px rgba(20,23,28,.04), 0 14px 34px -14px rgba(20,23,28,.22);
+      }
+      .steps li.on i { background: #0fb5de; color: #fff; }
+      .note {
+        margin-top: 34px; min-height: 84px; padding-left: 16px;
+        font-size: 22px; line-height: 1.35; font-weight: 500; color: #5d636f;
+        border-left: 3px solid #0fb5de;
+        transition: opacity .3s, transform .3s;
+      }
+      .note.swap { opacity: 0; transform: translateY(6px); }
+
+      /* ── right: the device ── */
+      .ipad {
+        flex: none; padding: 22px; border-radius: 52px;
+        background: linear-gradient(145deg, #2a2c31, #0d0e10);
+        box-shadow:
+          inset 0 0 0 2px #3a3d44, inset 0 0 0 4px #0b0c0e,
+          0 2px 4px rgba(0,0,0,.2), 0 50px 100px -30px rgba(20,23,28,.45);
+        position: relative;
+      }
+      .ipad::before { /* camera */
+        content: ""; position: absolute; left: 50%; top: 8px; width: 7px; height: 7px; margin-left: -3.5px;
+        border-radius: 50%; background: #1d2026; box-shadow: inset 0 0 0 1.5px #2e323a;
+      }
+      iframe { display: block; width: 1180px; height: 820px; border: 0; border-radius: 30px; background: #eff0f2; }
+
+      /* ── touch point ── */
+      #touch {
+        position: absolute; left: 0; top: 0; width: 44px; height: 44px; margin: -22px 0 0 -22px;
+        border-radius: 50%; pointer-events: none; z-index: 10; opacity: 0;
+        background: rgba(20,23,28,.16);
+        box-shadow: inset 0 0 0 2px rgba(255,255,255,.75), 0 4px 14px rgba(20,23,28,.25);
+        backdrop-filter: blur(2px);
+        transition: transform .5s cubic-bezier(.3,.7,.2,1), opacity .3s;
+      }
+      #touch.show { opacity: 1; }
+      #touch.press { animation: press .38s ease-out; }
+      @keyframes press {
+        0% { box-shadow: inset 0 0 0 2px rgba(255,255,255,.75), 0 0 0 0 rgba(15,181,222,.55); scale: 1; }
+        40% { scale: .78; }
+        100% { box-shadow: inset 0 0 0 2px rgba(255,255,255,.75), 0 0 0 26px rgba(15,181,222,0); scale: 1; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="stage">
+      <aside class="side">
+        <div class="brand">teammate <span>ai</span></div>
+        <ol class="steps" id="steps"></ol>
+        <div class="note" id="note"></div>
+      </aside>
+      <div class="ipad"><iframe id="app" src="/" allow="microphone; autoplay"></iframe></div>
+    </div>
+    <div id="touch"></div>
+
+    <script>
+      const STEPS = [
+        "Teams and the main agent",
+        "Create a team",
+        "History and minutes",
+        "Team brief and voices",
+        "Start a meeting",
+        "Listening",
+        "Agents step in",
+        "Minutes, filed",
+      ];
+      const list = document.getElementById("steps");
+      list.innerHTML = STEPS.map((s, i) => `<li><i>${i + 1}</i>${s}</li>`).join("");
+      const note = document.getElementById("note");
+      const touch = document.getElementById("touch");
+
+      window.demo = {
+        /** Highlight step i (0-based) and set the caption */
+        step(i, text = "") {
+          [...list.children].forEach((li, j) => {
+            li.className = j < i ? "done" : j === i ? "on" : "";
+            li.firstChild.textContent = j < i ? "✓" : j + 1;
+          });
+          this.note(text);
+        },
+        note(text) {
+          note.classList.add("swap");
+          setTimeout(() => {
+            note.textContent = text;
+            note.classList.remove("swap");
+          }, 260);
+        },
+        moveTo(x, y) {
+          touch.classList.add("show");
+          touch.style.transform = `translate(${x}px, ${y}px)`;
+        },
+        press() {
+          touch.classList.remove("press");
+          void touch.offsetWidth;
+          touch.classList.add("press");
+        },
+        hide() {
+          touch.classList.remove("show");
+        },
+      };
+      window.demo.step(-1);
+    </script>
+  </body>
+</html>

@@ -71,6 +71,18 @@ export function MeetingPage({ session, team }: { session: Session; team: Team })
 
   for (const c of latest.values()) if (!firstSeen.current.has(c.id)) firstSeen.current.set(c.id, Date.now());
 
+  // A pause does not count against a card's time on stage: shift every card by the length of the pause.
+  const pausedAt = useRef(0);
+  useEffect(() => {
+    if (paused) {
+      pausedAt.current = Date.now();
+    } else if (pausedAt.current) {
+      const gap = Date.now() - pausedAt.current;
+      pausedAt.current = 0;
+      for (const [id, t] of firstSeen.current) firstSeen.current.set(id, t + gap);
+    }
+  }, [paused]);
+
   const anySpeaking = TEAMMATE_IDS.some((id) => snapshot.teammates[id].status === "speaking");
   const stations = live
     ? [...latest.values()]
@@ -78,7 +90,7 @@ export function MeetingPage({ session, team }: { session: Session; team: Team })
           const status = snapshot.teammates[c.teammate].status;
           if (status === "speaking" || opened.has(c.id)) return true;
           if (closed.has(c.id) || c.level === 1) return false;
-          return now - (firstSeen.current.get(c.id) ?? now) < STATION_LIFE_MS;
+          return paused || now - (firstSeen.current.get(c.id) ?? now) < STATION_LIFE_MS;
         })
         .sort((a, b) => (firstSeen.current.get(a.id) ?? 0) - (firstSeen.current.get(b.id) ?? 0))
     : [];
