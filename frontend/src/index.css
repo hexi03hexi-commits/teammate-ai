@@ -1,0 +1,127 @@
+@import "tailwindcss";
+@import "@fontsource-variable/urbanist";
+
+/* ───────── Design tokens: white / grey first, with a dark counterpart ───────── */
+:root {
+  --bg: #eff0f2;
+  --surface: #ffffff;
+  --surface-2: #f6f6f8;
+  --ink: #14171c;
+  --ink-2: #5d636f;
+  --ink-3: #9da2ad;
+  --line: rgba(20, 23, 28, 0.07);
+  --shadow-card: 0 1px 2px rgba(20, 23, 28, 0.04), 0 12px 32px -12px rgba(20, 23, 28, 0.12);
+  --shadow-float: 0 2px 6px rgba(20, 23, 28, 0.05), 0 28px 60px -20px rgba(20, 23, 28, 0.22);
+  --glass: rgba(255, 255, 255, 0.62);
+  --glass-edge: rgba(255, 255, 255, 0.9);
+  --blob-face: #171b29;
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --bg: #0b0c0f;
+  --surface: #15171c;
+  --surface-2: #1c1f25;
+  --ink: #f2f3f5;
+  --ink-2: #a6abb6;
+  --ink-3: #6a6f7c;
+  --line: rgba(255, 255, 255, 0.08);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 16px 40px -16px rgba(0, 0, 0, 0.6);
+  --shadow-float: 0 2px 6px rgba(0, 0, 0, 0.3), 0 30px 70px -20px rgba(0, 0, 0, 0.75);
+  --glass: rgba(34, 37, 45, 0.6);
+  --glass-edge: rgba(255, 255, 255, 0.14);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-line: var(--line);
+  --shadow-card: var(--shadow-card);
+  --shadow-float: var(--shadow-float);
+  --font-sans: "Urbanist Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overflow: hidden;
+  transition: background-color 0.4s ease, color 0.4s ease;
+}
+@layer base {
+  button {
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+  }
+}
+::selection {
+  background: color-mix(in srgb, var(--ink) 14%, transparent);
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Frosted-glass surface used for bubbles, badges and controls */
+.glass {
+  background: var(--glass);
+  backdrop-filter: blur(22px) saturate(1.6);
+  -webkit-backdrop-filter: blur(22px) saturate(1.6);
+  box-shadow: inset 0 1px 0 var(--glass-edge), inset 0 0 0 1px var(--line), var(--shadow-card);
+}
+
+/* ───────── Agent figure ───────── */
+@keyframes blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95% { transform: scaleY(0.08); }
+}
+@keyframes talk {
+  0%, 100% { transform: scaleY(0.35); }
+  30% { transform: scaleY(1); }
+  60% { transform: scaleY(0.55); }
+  80% { transform: scaleY(0.9); }
+}
+@keyframes zzz {
+  0% { opacity: 0; transform: translate(0, 6%) scale(0.7); }
+  25% { opacity: 1; }
+  100% { opacity: 0; transform: translate(14%, -26%) scale(1.15); }
+}
+@keyframes tick {
+  0%, 100% { opacity: 0.25; transform: scaleY(0.6); }
+  50% { opacity: 1; transform: scaleY(1); }
+}
+@keyframes orbit {
+  to { transform: rotate(360deg); }
+}
+@keyframes blob-morph {
+  0%, 100% { border-radius: 58% 42% 47% 53% / 52% 46% 54% 48%; }
+  33% { border-radius: 46% 54% 56% 44% / 44% 56% 44% 56%; }
+  66% { border-radius: 52% 48% 42% 58% / 58% 44% 56% 42%; }
+}
+.eye { transform-box: fill-box; transform-origin: center; animation: blink 4.6s infinite; }
+.mouth-talk { transform-box: fill-box; transform-origin: center; animation: talk 0.42s infinite; }
+.zzz { transform-box: fill-box; transform-origin: center; animation: zzz 3.2s infinite ease-out; }
+.tick { transform-box: fill-box; transform-origin: bottom center; animation: tick 0.9s infinite ease-in-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
