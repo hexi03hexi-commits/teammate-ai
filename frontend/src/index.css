@@ -105,8 +105,9 @@ body {
   0%, 100% { opacity: 0.25; transform: scaleY(0.6); }
   50% { opacity: 1; transform: scaleY(1); }
 }
-@keyframes orbit {
-  to { transform: rotate(360deg); }
+@keyframes think {
+  0%, 70%, 100% { opacity: 0.22; transform: scale(0.72); }
+  30% { opacity: 1; transform: scale(1); }
 }
 @keyframes blob-morph {
   0%, 100% { border-radius: 58% 42% 47% 53% / 52% 46% 54% 48%; }
@@ -116,6 +117,7 @@ body {
 .eye { transform-box: fill-box; transform-origin: center; animation: blink 4.6s infinite; }
 .mouth-talk { transform-box: fill-box; transform-origin: center; animation: talk 0.42s infinite; }
 .zzz { transform-box: fill-box; transform-origin: center; animation: zzz 3.2s infinite ease-out; }
+.think { transform-box: fill-box; transform-origin: center; animation: think 1.5s infinite ease-in-out; }
 .tick { transform-box: fill-box; transform-origin: bottom center; animation: tick 0.9s infinite ease-in-out; }
 
 @media (prefers-reduced-motion: reduce) {

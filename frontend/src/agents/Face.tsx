@@ -19,12 +19,14 @@ export function Face({ mood, look = 0 }: { mood: Mood; look?: number }) {
       </>
     );
   } else if (mood === "thinking") {
-    // ︶ ︶
+    // Eyes open, looking up and to the side, towards the thought bubbles
     eyes = (
-      <>
-        <path d="M33 48 Q38 53 43 48" {...stroke} />
-        <path d="M57 48 Q62 53 67 48" {...stroke} />
-      </>
+      <g style={{ transform: "translate(2.5px, -3.5px)", transition: "transform 0.5s cubic-bezier(.3,1.4,.5,1)" }}>
+        <ellipse cx="38" cy="48" rx="4.6" ry="6" fill={ink} />
+        <circle cx="40.4" cy="44.8" r="1.6" fill="#fff" opacity="0.9" />
+        <ellipse cx="62" cy="48" rx="4.6" ry="6" fill={ink} />
+        <circle cx="64.4" cy="44.8" r="1.6" fill="#fff" opacity="0.9" />
+      </g>
     );
   } else {
     eyes = (
@@ -46,6 +48,9 @@ export function Face({ mood, look = 0 }: { mood: Mood; look?: number }) {
     mouth = <ellipse className="mouth-talk" cx="50" cy="62" rx="5" ry="4.6" fill={ink} />;
   } else if (mood === "asleep") {
     mouth = null;
+  } else if (mood === "thinking") {
+    // a small, closed, slightly off-centre mouth: concentrating
+    mouth = <path d="M47 62 Q51 63.5 55 61" {...stroke} strokeWidth={3} />;
   } else if (mood === "listening" || mood === "nudging") {
     mouth = <ellipse cx="50" cy="61.5" rx="2.6" ry="2.2" fill={ink} />;
   } else {
@@ -108,10 +113,14 @@ export function Extras({ mood, color }: { mood: Mood; color: string }) {
   if (mood === "thinking") {
     return (
       <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full overflow-visible" aria-hidden>
-        <g style={{ transformOrigin: "50px 54px", animation: "orbit 2.6s linear infinite" }}>
-          <ellipse cx="50" cy="54" rx="52" ry="13" fill="none" stroke={color} strokeWidth="1" opacity="0.45" transform="rotate(-10 50 54)" />
-          <circle cx="101" cy="45" r="2.6" fill={color} />
-        </g>
+        {/* Thought bubbles: three dots rising from the head, lighting up one after another */}
+        {[
+          { cx: 78, cy: 21, r: 2.4 },
+          { cx: 86.5, cy: 12.5, r: 3.5 },
+          { cx: 97, cy: 2.5, r: 4.9 },
+        ].map((d, i) => (
+          <circle key={i} className="think" {...d} fill={color} style={{ animationDelay: `${i * 0.22}s` }} />
+        ))}
       </svg>
     );
   }
