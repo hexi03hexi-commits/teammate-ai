@@ -1,0 +1,107 @@
+{
+  "_about": "成员画像的测试：画像只是背景参考，最终按会议内容判断。重点是它不能让某个队友永远不出场，也不能在当事人不在场时起作用。npm run agents:eval -- --file personas",
+  "cases": [
+    {
+      "id": "p-control-no-notes",
+      "about": "对照组：别人闲聊，Henry 到第五轮才拉回。没有画像时，Pilot 应当在第三轮闲聊就介入。",
+      "durationMin": 5,
+      "expect": [{ "teammate": "pilot", "from": 26, "to": 36 }],
+      "items": [
+        { "t": 2, "speaker": "s1", "text": "Okay, education track. What have we got?" },
+        { "t": 8, "speaker": "s3", "text": "An AI study buddy that makes flashcards from lectures." },
+        { "t": 14, "speaker": "s2", "text": "Nice. Speaking of lectures, did you see the new lecture hall? The screens are huge." },
+        { "t": 20, "speaker": "s3", "text": "Yeah, and the coffee place next to it is great." },
+        { "t": 26, "speaker": "s2", "text": "They have that oat flat white, best on campus." },
+        { "t": 32, "speaker": "s4", "text": "I still prefer the place by the library, honestly." },
+        { "t": 38, "speaker": "s1", "text": "Okay, fun, but coffee later. Four minutes left: flashcards from lectures, what's our twist?" },
+        { "t": 46, "speaker": "s3", "text": "Maybe it works live, while the lecture is happening." }
+      ]
+    },
+    {
+      "id": "p-facilitator-gets-room",
+      "about": "同一段对话，但画像显示 Henry 一贯会控场，他在第五轮拉回了。画像只是参考：多等他一会儿或者按会议内容照常介入，都算对；但不该派别的队友。",
+      "allow": ["pilot"],
+      "durationMin": 5,
+      "personas": [{ "speakerId": "s1", "name": "Henry", "meetings": 3, "roles": { "pilot": { "habit": "reliable", "evidence": "stated the time and pulled the group back in each meeting" } } }],
+      "expect": [],
+      "items": [
+        { "t": 2, "speaker": "s1", "text": "Okay, education track. What have we got?" },
+        { "t": 8, "speaker": "s3", "text": "An AI study buddy that makes flashcards from lectures." },
+        { "t": 14, "speaker": "s2", "text": "Nice. Speaking of lectures, did you see the new lecture hall? The screens are huge." },
+        { "t": 20, "speaker": "s3", "text": "Yeah, and the coffee place next to it is great." },
+        { "t": 26, "speaker": "s2", "text": "They have that oat flat white, best on campus." },
+        { "t": 32, "speaker": "s4", "text": "I still prefer the place by the library, honestly." },
+        { "t": 38, "speaker": "s1", "text": "Okay, fun, but coffee later. Four minutes left: flashcards from lectures, what's our twist?" },
+        { "t": 46, "speaker": "s3", "text": "Maybe it works live, while the lecture is happening." }
+      ]
+    },
+    {
+      "id": "p-facilitator-joins-drift",
+      "about": "画像显示 Henry 一贯会控场，但这次他自己也在聊咖啡。位置这次是空的，Pilot 应当出来。",
+      "durationMin": 5,
+      "personas": [{ "speakerId": "s1", "name": "Henry", "meetings": 3, "roles": { "pilot": { "habit": "reliable", "evidence": "stated the time and pulled the group back in each meeting" } } }],
+      "expect": [{ "teammate": "pilot", "from": 26, "to": 52 }],
+      "items": [
+        { "t": 2, "speaker": "s1", "text": "Okay, education track. What have we got?" },
+        { "t": 8, "speaker": "s3", "text": "An AI study buddy that makes flashcards from lectures." },
+        { "t": 14, "speaker": "s2", "text": "Nice. Speaking of lectures, did you see the new lecture hall? The screens are huge." },
+        { "t": 20, "speaker": "s3", "text": "Yeah, and the coffee place next to it is great." },
+        { "t": 26, "speaker": "s1", "text": "Oh, the one with the oat flat white? I'm there every morning." },
+        { "t": 32, "speaker": "s4", "text": "I still prefer the place by the library, honestly." },
+        { "t": 38, "speaker": "s1", "text": "The library one burns their espresso though." },
+        { "t": 44, "speaker": "s2", "text": "True. We should all go tomorrow and compare." },
+        { "t": 50, "speaker": "s3", "text": "I'm in. Nine o'clock?" }
+      ]
+    },
+    {
+      "id": "p-facilitator-not-in-room",
+      "about": "画像显示 Henry 一贯会控场，但他没参加这场会。画像不该起作用，Pilot 按正常节奏介入。",
+      "durationMin": 5,
+      "present": ["s2", "s3", "s4"],
+      "personas": [{ "speakerId": "s1", "name": "Henry", "meetings": 3, "roles": { "pilot": { "habit": "reliable", "evidence": "stated the time and pulled the group back in each meeting" } } }],
+      "expect": [{ "teammate": "pilot", "from": 26, "to": 46 }],
+      "items": [
+        { "t": 2, "speaker": "s4", "text": "Henry's out today. Education track, what have we got?" },
+        { "t": 8, "speaker": "s3", "text": "An AI study buddy that makes flashcards from lectures." },
+        { "t": 14, "speaker": "s2", "text": "Nice. Speaking of lectures, did you see the new lecture hall? The screens are huge." },
+        { "t": 20, "speaker": "s3", "text": "Yeah, and the coffee place next to it is great." },
+        { "t": 26, "speaker": "s2", "text": "They have that oat flat white, best on campus." },
+        { "t": 32, "speaker": "s4", "text": "I still prefer the place by the library, honestly." },
+        { "t": 38, "speaker": "s3", "text": "The library one closes at four though." },
+        { "t": 44, "speaker": "s2", "text": "True. We should all go tomorrow morning." }
+      ]
+    },
+    {
+      "id": "p-sceptic-gets-room",
+      "about": "画像显示 Lin 一贯会质疑数字。Ava 先接受了“80%”，Lin 在下一轮才质疑。画像只是参考：等她或者按内容照常介入都算对。",
+      "allow": ["sage"],
+      "durationMin": 5,
+      "personas": [{ "speakerId": "s4", "name": "Dr. Lin", "meetings": 4, "roles": { "sage": { "habit": "reliable", "evidence": "asked for the source of every figure before it went into a slide" } } }],
+      "expect": [],
+      "items": [
+        { "t": 2, "speaker": "s1", "text": "So, live lecture companion. Why would the judges care?" },
+        { "t": 9, "speaker": "s3", "text": "Because students learn eighty percent better with spaced repetition. We just build that in." },
+        { "t": 16, "speaker": "s2", "text": "Sure, eighty percent, that's a great number for the video." },
+        { "t": 22, "speaker": "s4", "text": "Hold on, where is eighty percent from? I've never seen that figure." },
+        { "t": 29, "speaker": "s3", "text": "Honestly, I don't remember." },
+        { "t": 34, "speaker": "s4", "text": "Then no number. We say it's well established and cite one review." },
+        { "t": 41, "speaker": "s1", "text": "Agreed." }
+      ]
+    },
+    {
+      "id": "p-sceptic-lets-it-pass",
+      "about": "画像显示 Lin 一贯会质疑数字，但这次她自己说“放第一页吧”。位置这次是空的，Sage 应当出来。",
+      "durationMin": 5,
+      "personas": [{ "speakerId": "s4", "name": "Dr. Lin", "meetings": 4, "roles": { "sage": { "habit": "reliable", "evidence": "asked for the source of every figure before it went into a slide" } } }],
+      "expect": [{ "teammate": "sage", "from": 16, "to": 42 }],
+      "items": [
+        { "t": 2, "speaker": "s1", "text": "So, live lecture companion. Why would the judges care?" },
+        { "t": 9, "speaker": "s3", "text": "Because students learn eighty percent better with spaced repetition. We just build that in." },
+        { "t": 16, "speaker": "s2", "text": "Sure, eighty percent, that's a great number for the video." },
+        { "t": 22, "speaker": "s4", "text": "Fine, put it on the first slide then. I'll set up the server meanwhile." },
+        { "t": 30, "speaker": "s2", "text": "I'll make it big, eighty percent in the title." },
+        { "t": 37, "speaker": "s1", "text": "Great. What's on slide two?" }
+      ]
+    }
+  ]
+}

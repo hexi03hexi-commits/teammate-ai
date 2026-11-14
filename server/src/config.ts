@@ -37,6 +37,8 @@ export const config = {
   globalSpeakCooldownMs: ms(30_000),
   /** 同一个队友两次介入之间的最短间隔 */
   teammateCooldownMs: ms(45_000),
+  /** 任意两个队友主动介入之间的最短间隔（点名不受限），防止扎堆 */
+  interventionGapMs: ms(18_000),
   /** 主 agent 两次判断之间的最短间隔 */
   orchestratorMinIntervalMs: ms(4_000),
 };

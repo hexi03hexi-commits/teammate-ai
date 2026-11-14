@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { Card, SessionConfig, TeammateId, TeammateState, Utterance } from "@teammate/shared";
+import type { Persona } from "./personas.ts";
 
 /** 每次调用 agent 时服务端传进来的会议现场。 */
 export interface MeetingContext {
@@ -11,6 +12,15 @@ export interface MeetingContext {
   teammates: Record<TeammateId, TeammateState>;
   /** 已经发出的卡片（用来避免重复介入） */
   cards: Card[];
+  /** 主 agent 跨轮次的记忆：它上一轮留给自己的观察。由调用方保存并原样传回。 */
+  memory?: OrchestratorMemory;
+  /** 成员画像（不公开）。只有主 agent 读它，角色 agent 不读。 */
+  personas?: Persona[];
+}
+
+export interface OrchestratorMemory {
+  /** 正在留意、但还没到需要介入程度的事 */
+  watching: string | null;
 }
 
 let client: Anthropic | null = null;
@@ -20,7 +30,7 @@ export function anthropic(): Anthropic {
   return client;
 }
 
-export const ORCHESTRATOR_MODEL = () => process.env.ORCHESTRATOR_MODEL || "claude-opus-5-5";
+export const ORCHESTRATOR_MODEL = () => process.env.ORCHESTRATOR_MODEL || "claude-sonnet-5-5";
 export const ROLE_MODEL = () => process.env.ROLE_MODEL || "claude-opus-5-5";
 
 export function fmtClock(ms: number): string {

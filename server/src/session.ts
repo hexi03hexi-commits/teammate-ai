@@ -13,7 +13,8 @@ import {
   type TeammateStatus,
   type Utterance,
 } from "@teammate/shared";
-import type { Decision, MeetingContext, RoleOutput } from "@teammate/agents";
+import { newMemory, type Decision, type MeetingContext, type Persona, type RoleOutput } from "@teammate/agents";
+import { loadPersonas, savePersonas } from "./personaStore.ts";
 import { config } from "./config.ts";
 import { synthesize } from "./audio/tts.ts";
 
@@ -22,6 +23,7 @@ export interface Brain {
   decide(ctx: MeetingContext): Promise<Decision>;
   runRole(teammate: TeammateId, ctx: MeetingContext, brief: string, level: InterventionLevel): Promise<RoleOutput>;
   writeDecision(ctx: MeetingContext): Promise<SessionSnapshot["decision"] & {}>;
+  updatePersonas(ctx: MeetingContext, previous: Persona[]): Promise<Persona[]>;
 }
 
 interface PendingSpeak {
@@ -30,6 +32,8 @@ interface PendingSpeak {
   text: string;
   cardId: string;
   queuedAt: number;
+  /** 被点名的回答：不受发声冷却限制，人在等它 */
+  direct: boolean;
 }
 
 export interface InterventionInput {
@@ -59,6 +63,11 @@ export class Session {
   private decideAgain = false;
   private lastSpeakAt = 0;
   private lastInterventionAt: Partial<Record<TeammateId, number>> = {};
+  private lastAnyInterventionAt = 0;
+  /** 主 agent 跨轮次的观察（它在留意、还没到要介入的事） */
+  private memory = newMemory();
+  /** 成员画像：不公开，只传给主 agent，从不广播 */
+  private personas: Persona[] = [];
   private mutedUntil: Partial<Record<TeammateId, number>> = {};
   private speakQueue: PendingSpeak[] = [];
   private nowSpeaking: PendingSpeak | null = null;
@@ -105,6 +114,8 @@ export class Session {
       transcript: this.transcript,
       teammates: this.snapshot.teammates,
       cards: this.snapshot.cards,
+      memory: this.memory,
+      personas: this.personas,
     };
   }
 
@@ -137,6 +148,8 @@ export class Session {
     this.snapshot.phase = "live";
     this.snapshot.config = cfg;
     this.snapshot.startedAt = Date.now();
+    this.personas = this.brain ? loadPersonas(cfg.teamId) : [];
+    if (this.personas.length) log(`loaded private notes on ${this.personas.length} people`);
     for (const id of TEAMMATE_IDS) {
       if (this.snapshot.teammates[id].override === "on") this.snapshot.teammates[id].status = "idle";
     }
@@ -152,6 +165,19 @@ export class Session {
     this.speakQueue = [];
     this.broadcast({ type: "snapshot", snapshot: this.snapshot });
     this.onPhaseChange("ended");
+
+    // 画像更新在后台进行，不耽误出纪要。先把这场会议的内容留住，之后的 reset 不会影响它。
+    const finished = this.context();
+    const teamId = finished.config.teamId;
+    if (this.brain && teamId && finished.transcript.length >= 6) {
+      void this.brain
+        .updatePersonas(finished, this.personas)
+        .then((personas) => {
+          savePersonas(teamId, personas);
+          log(`private notes updated for ${personas.length} people`);
+        })
+        .catch((err) => log("persona update failed:", err));
+    }
 
     const adoptedCardIds = this.snapshot.cards.filter((c) => c.status === "adopted").map((c) => c.id);
     try {
@@ -195,6 +221,8 @@ export class Session {
     this.speakQueue = [];
     this.nowSpeaking = null;
     this.lastInterventionAt = {};
+    this.lastAnyInterventionAt = 0;
+    this.memory = newMemory();
     this.mutedUntil = {};
     this.lastSpeakAt = 0;
     this.lastDecisionAt = 0;
@@ -291,6 +319,14 @@ export class Session {
         log(`  · silent — ${d.reason}`);
       } else if (!this.canUse(d.teammate)) {
         log(`  · ${d.teammate} is off or muted, skipped`);
+      } else if (Date.now() - this.lastAnyInterventionAt < config.interventionGapMs) {
+        // 不丢弃：等间隔结束后重新判断一次，那时这个点如果还成立就会被派出
+        const wait = config.interventionGapMs - (Date.now() - this.lastAnyInterventionAt);
+        log(`  · ${d.teammate} held back for ${Math.round(wait / 1000)}s, another teammate just stepped in — ${d.reason}`);
+        setTimeout(() => {
+          this.decideAgain = true;
+          this.flushDecide();
+        }, wait + 50);
       } else if (Date.now() - (this.lastInterventionAt[d.teammate] ?? 0) < config.teammateCooldownMs) {
         log(`  · ${d.teammate} is cooling down, skipped — ${d.reason}`);
       } else {
@@ -309,6 +345,7 @@ export class Session {
   private async produce(teammate: TeammateId, level: InterventionLevel, brief: string, direct: boolean) {
     if (!this.brain) return;
     this.lastInterventionAt[teammate] = Date.now(); // 先占住冷却，避免同一个队友被重复派出
+    if (!direct) this.lastAnyInterventionAt = Date.now();
     if (this.snapshot.teammates[teammate].status === "hidden") this.setStatus(teammate, "idle");
     try {
       const out = await this.brain.runRole(teammate, this.context(), brief, level);
@@ -346,7 +383,7 @@ export class Session {
     if (wantsToSpeak) {
       // 先亮起，等到停顿再开口
       this.setStatus(teammate, "has_something");
-      this.speakQueue.push({ id: this.id("s"), teammate, text: input.say!, cardId: card.id, queuedAt: Date.now() });
+      this.speakQueue.push({ id: this.id("s"), teammate, text: input.say!, cardId: card.id, queuedAt: Date.now(), direct });
     } else {
       this.setStatus(teammate, input.level === 1 ? "has_something" : this.restingStatus(teammate));
     }
@@ -381,7 +418,7 @@ export class Session {
     const next = this.speakQueue[0];
     if (!next) return;
     const paused = now - this.lastSpeechAt >= config.pauseMs;
-    const cooled = now - this.lastSpeakAt >= config.globalSpeakCooldownMs;
+    const cooled = next.direct || now - this.lastSpeakAt >= config.globalSpeakCooldownMs;
     if (!paused || !cooled) return;
 
     this.speakQueue.shift();

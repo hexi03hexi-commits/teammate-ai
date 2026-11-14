@@ -1,0 +1,192 @@
+{
+  "_about": "介入时机的测试集。每个场景说明真人有没有补上某个角色：没补上 → expect 里列出应当介入的队友和时间窗（秒，按触发那句话的 t 计）；补上了 → expect 为空，任何介入都算误报。speaker: s1 Henry, s2 Ava, s3 Ben, s4 Dr. Lin。用 npm run agents:eval 运行。",
+  "cases": [
+    {
+      "id": "healthy-team",
+      "about": "团队自己控时间、查竞品、质疑数字、提风险、分工。没有任何角色空缺。",
+      "durationMin": 5,
+      "expect": [],
+      "items": [
+        { "t": 2, "speaker": "s1", "text": "Five minutes on the clock. Let's get ideas out, then pick one by minute three." },
+        { "t": 9, "speaker": "s3", "text": "Idea one: an AI study buddy that turns lecture recordings into flashcards." },
+        { "t": 16, "speaker": "s4", "text": "Let me check if that exists. Yes, Quizlet and Knowt both do this already, so flashcards alone won't score on innovation." },
+        { "t": 25, "speaker": "s2", "text": "Then what about doing it live, during the lecture, so you get questions while the lecturer is still talking?" },
+        { "t": 33, "speaker": "s4", "text": "I can't find anyone doing it live in the room. That part looks open." },
+        { "t": 40, "speaker": "s3", "text": "Spaced repetition makes students learn eighty percent better, we could pitch that." },
+        { "t": 46, "speaker": "s2", "text": "Do we have a source for eighty percent? I wouldn't put a number in the video that we can't back up." },
+        { "t": 53, "speaker": "s3", "text": "Fair, I made that up. Let's just say it's well evidenced." },
+        { "t": 59, "speaker": "s1", "text": "We're at one minute, good pace. Any objections to the live version before we commit?" },
+        { "t": 66, "speaker": "s3", "text": "My worry is live transcription in a noisy room. If it fails, the demo is dead." },
+        { "t": 73, "speaker": "s4", "text": "Agreed, that's the main risk. I'll prepare a recorded clip as a fallback." },
+        { "t": 80, "speaker": "s1", "text": "Okay. Decision: live lecture companion with a recorded fallback. Ben takes the pipeline, Ava the interface and video, Lin the server and fallback, I'll do the script." },
+        { "t": 90, "speaker": "s2", "text": "Works for me." },
+        { "t": 92, "speaker": "s3", "text": "Same." }
+      ]
+    },
+    {
+      "id": "drift-nobody-steers",
+      "about": "连续多轮闲聊，没有人把话题拉回来。缺主持。",
+      "durationMin": 5,
+      "expect": [{ "teammate": "pilot", "from": 26, "to": 46 }],
+      "items": [
+        { "t": 2, "speaker": "s1", "text": "Okay, education track. What have we got?" },
+        { "t": 8, "speaker": "s3", "text": "An AI study buddy that makes flashcards from lectures." },
+        { "t": 14, "speaker": "s2", "text": "Nice. Speaking of lectures, did you see the new lecture hall? The screens are huge." },
+        { "t": 20, "speaker": "s3", "text": "Yeah, and the coffee place next to it is great." },
+        { "t": 26, "speaker": "s2", "text": "They have that oat flat white, best on campus." },
+        { "t": 32, "speaker": "s4", "text": "I still prefer the place by the library, honestly. Shorter queue." },
+        { "t": 38, "speaker": "s3", "text": "The library one closes at four though." },
+        { "t": 44, "speaker": "s2", "text": "True. We should all go tomorrow morning." }
+      ]
+    },
+    {
+      "id": "drift-human-steers",
+      "about": "闲聊两轮后 Henry 自己把话题拉回来了。有人在主持。",
+      "durationMin": 5,
+      "expect": [],
+      "items": [
+        { "t": 2, "speaker": "s1", "text": "Okay, education track. What have we got?" },
+        { "t": 8, "speaker": "s3", "text": "An AI study buddy that makes flashcards from lectures." },
+        { "t": 14, "speaker": "s2", "text": "Nice. Speaking of lectures, did you see the new lecture hall? The screens are huge." },
+        { "t": 20, "speaker": "s3", "text": "Yeah, and the coffee place next to it is great." },
+        { "t": 26, "speaker": "s1", "text": "Coffee later. We've got four minutes, back to the idea: flashcards from lectures, what's the twist?" },
+        { "t": 34, "speaker": "s3", "text": "Maybe it works live, while the lecture is happening." },
+        { "t": 41, "speaker": "s4", "text": "Live is interesting. What would it show the student during the lecture?" },
+        { "t": 48, "speaker": "s2", "text": "One question every few minutes, about what was just said." }
+      ]
+    },
+    {
+      "id": "prior-art-unknown",
+      "about": "有人问有没有人做过，没人知道，大家决定当作没有继续往下走。缺研究员。",
+      "durationMin": 5,
+      "expect": [{ "teammate": "scout", "from": 21, "to": 40 }],
+      "items": [
+        { "t": 2, "speaker": "s1", "text": "Okay, education track. What have we got?" },
+        { "t": 8, "speaker": "s3", "text": "What about an AI study buddy that turns your lecture recordings into flashcards automatically?" },
+        { "t": 15, "speaker": "s2", "text": "Oh I like that. I could make the flashcards look really nice, like a swipe deck." },
+        { "t": 21, "speaker": "s4", "text": "Has anyone done that already? It sounds familiar." },
+        { "t": 25, "speaker": "s3", "text": "Not sure. Probably not exactly this." },
+        { "t": 31, "speaker": "s2", "text": "I think it's new. Let's assume nobody has and move on to the design." },
+        { "t": 38, "speaker": "s1", "text": "Okay, so what screens do we need?" }
+      ]
+    },
+    {
+      "id": "prior-art-human-knows",
+      "about": "有人问有没有人做过，Ava 用过同类产品直接回答了，Lin 主动去查另一个问题。有人在做研究。",
+      "durationMin": 5,
+      "expect": [],
+      "items": [
+        { "t": 2, "speaker": "s1", "text": "Okay, education track. What have we got?" },
+        { "t": 8, "speaker": "s3", "text": "What about an AI study buddy that turns your lecture recordings into flashcards automatically?" },
+        { "t": 15, "speaker": "s4", "text": "Has anyone done that already? It sounds familiar." },
+        { "t": 20, "speaker": "s2", "text": "Yes, I used Knowt last term. It records the lecture and makes flashcards. Quizlet has it too." },
+        { "t": 28, "speaker": "s3", "text": "Okay, so that's taken. We need a different angle." },
+        { "t": 34, "speaker": "s1", "text": "What about live, during the lecture?" },
+        { "t": 40, "speaker": "s4", "text": "Good question whether live exists. I'll look it up right now while you sketch, give me two minutes." },
+        { "t": 48, "speaker": "s2", "text": "Okay, I'll sketch what the student sees." }
+      ]
+    },
+    {
+      "id": "stat-accepted",
+      "about": "一个没有来源的数字被接受并准备放进视频，没有人质疑。缺领域专家。",
+      "durationMin": 5,
+      "expect": [{ "teammate": "sage", "from": 9, "to": 30 }],
+      "items": [
+        { "t": 2, "speaker": "s1", "text": "So, live lecture companion. Why would the judges care?" },
+        { "t": 9, "speaker": "s3", "text": "Because students learn eighty percent better with spaced repetition. We just build that in." },
+        { "t": 16, "speaker": "s2", "text": "Sure, eighty percent, that's a great number for the video." },
+        { "t": 22, "speaker": "s1", "text": "Put it on the first slide then." },
+        { "t": 28, "speaker": "s2", "text": "I'll make it big, eighty percent in the title." }
+      ]
+    },
+    {
+      "id": "stat-human-challenges",
+      "about": "同一个数字，但 Lin 当场质疑来源，团队决定不用。有人在把关事实。",
+      "durationMin": 5,
+      "expect": [],
+      "items": [
+        { "t": 2, "speaker": "s1", "text": "So, live lecture companion. Why would the judges care?" },
+        { "t": 9, "speaker": "s3", "text": "Because students learn eighty percent better with spaced repetition. We just build that in." },
+        { "t": 16, "speaker": "s4", "text": "Where is eighty percent from? I know spaced repetition helps, but I've never seen that figure." },
+        { "t": 24, "speaker": "s3", "text": "Honestly I don't remember. Maybe a blog." },
+        { "t": 30, "speaker": "s4", "text": "Then let's not use a number. We say it's well established and cite one review." },
+        { "t": 37, "speaker": "s1", "text": "Agreed, no number." }
+      ]
+    },
+    {
+      "id": "groupthink",
+      "about": "十秒内全员同意并开始动手，没有任何人提过风险。缺反对意见。",
+      "durationMin": 5,
+      "expect": [{ "teammate": "rebel", "from": 10, "to": 26 }],
+      "items": [
+        { "t": 2, "speaker": "s1", "text": "So the proposal is the live lecture companion: it listens to the lecture and shows the student a question every few minutes." },
+        { "t": 10, "speaker": "s4", "text": "So are we all happy with the live companion?" },
+        { "t": 14, "speaker": "s2", "text": "Yes, love it." },
+        { "t": 16, "speaker": "s3", "text": "Agreed." },
+        { "t": 18, "speaker": "s1", "text": "Great, sounds good to everyone. Let's go with it." },
+        { "t": 24, "speaker": "s3", "text": "I'll start on the transcription pipeline then." }
+      ]
+    },
+    {
+      "id": "risk-already-debated",
+      "about": "拍板前 Ben 提了风险，团队讨论并接受了备选方案，然后才同意。有人在唱反调。",
+      "durationMin": 5,
+      "expect": [],
+      "items": [
+        { "t": 2, "speaker": "s1", "text": "So the proposal is the live lecture companion: it listens to the lecture and shows the student a question every few minutes." },
+        { "t": 10, "speaker": "s3", "text": "My worry is the live part. Transcription in a noisy hall could just fail on stage." },
+        { "t": 17, "speaker": "s4", "text": "That's a real risk. We could pre-record a lecture clip as a fallback." },
+        { "t": 24, "speaker": "s2", "text": "And if the fallback is what we end up showing, is it still impressive?" },
+        { "t": 30, "speaker": "s1", "text": "I think so, if the questions are good. I'm fine with that risk." },
+        { "t": 36, "speaker": "s4", "text": "Then are we happy with the live companion plus fallback?" },
+        { "t": 40, "speaker": "s2", "text": "Yes." },
+        { "t": 42, "speaker": "s3", "text": "Yes." }
+      ]
+    },
+    {
+      "id": "on-pace",
+      "about": "讨论紧凑、一直在推进，时间还很充裕。进度正常，不需要任何人提醒时间。",
+      "durationMin": 10,
+      "expect": [],
+      "items": [
+        { "t": 2, "speaker": "s1", "text": "Ten minutes. Idea first, then who does what." },
+        { "t": 10, "speaker": "s3", "text": "Live lecture companion: it listens and shows the student a question every few minutes." },
+        { "t": 18, "speaker": "s2", "text": "I like it. What does the student actually see?" },
+        { "t": 26, "speaker": "s3", "text": "One card at a time, big text, swipe to answer." },
+        { "t": 34, "speaker": "s4", "text": "And the server keeps the last two minutes of transcript to write the question from." },
+        { "t": 42, "speaker": "s2", "text": "Could it also show the slide the question is about?" },
+        { "t": 50, "speaker": "s3", "text": "If we can get the slides, yes. Let's keep that as a stretch goal." },
+        { "t": 58, "speaker": "s4", "text": "Fine. One risk is noisy rooms, I'll test the microphone in the hall this afternoon." },
+        { "t": 66, "speaker": "s1", "text": "Good. So first version is audio only, one question every few minutes. Two minutes in, we're on track." }
+      ]
+    },
+    {
+      "id": "overtime-still-exploring",
+      "about": "只剩一分钟，团队还在不断抛新点子，没人提出收敛或做决定。缺主持。",
+      "durationMin": 5,
+      "expect": [{ "teammate": "pilot", "from": 222, "to": 272 }],
+      "items": [
+        { "t": 5, "speaker": "s1", "text": "Let's brainstorm freely first, anything goes." },
+        { "t": 222, "speaker": "s3", "text": "Or we could do a quiz game instead of flashcards." },
+        { "t": 230, "speaker": "s2", "text": "Or a mind map generator, those look great." },
+        { "t": 238, "speaker": "s3", "text": "A podcast summariser would be cool too." },
+        { "t": 246, "speaker": "s4", "text": "What about a tool for lab reports?" },
+        { "t": 254, "speaker": "s2", "text": "Oh, or something for group projects." },
+        { "t": 262, "speaker": "s3", "text": "There are so many options." },
+        { "t": 270, "speaker": "s2", "text": "We could even combine two of them." }
+      ]
+    },
+    {
+      "id": "demo-brainstorm",
+      "about": "完整的演示对话。四个角色各有一次空缺；最后团队自己完成了分工，不需要再催。",
+      "durationMin": 5,
+      "fixture": "brainstorm.json",
+      "expect": [
+        { "teammate": "scout", "from": 21, "to": 43 },
+        { "teammate": "pilot", "from": 50, "to": 74 },
+        { "teammate": "sage", "from": 74, "to": 95 },
+        { "teammate": "rebel", "from": 95, "to": 122 }
+      ]
+    }
+  ]
+}

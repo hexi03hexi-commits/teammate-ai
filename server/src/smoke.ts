@@ -16,7 +16,7 @@ const send = (m: ClientMessage) => ws.send(JSON.stringify(m));
 
 ws.on("open", () => {
   send({ type: "hello", role: "host" });
-  send({ type: "start_session", config: DEMO_CONFIG });
+  send({ type: "start_session", config: { ...DEMO_CONFIG, teamId: "t-hack" } });
   setTimeout(() => send({ type: "end_session" }), endAfterS * 1000);
 });
 ws.on("error", (err) => {

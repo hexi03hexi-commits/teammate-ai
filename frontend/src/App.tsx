@@ -80,7 +80,8 @@ export function App() {
         criteria: team.criteria,
         industry: team.industry,
         durationMin: opts.durationMin,
-        speakers: team.members.filter((m) => opts.memberIds.includes(m.id)),
+        speakers: team.members.filter((m) => opts.memberIds.includes(m.id)).map(({ id, name, skill }) => ({ id, name, skill })),
+        teamId: team.id,
       };
       send({ type: "start_session", config });
       setView({ name: "meeting", teamId });

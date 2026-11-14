@@ -1,0 +1,120 @@
+{
+  "_about": "留出集：不同题材（品牌设计团队给咖啡连锁店改版）、不同措辞。提示词没有对着这些场景调过，用来检验规则是否真的泛化。不要拿它来调提示词；要调就再写一组新的。npm run agents:eval -- --file holdout",
+  "config": {
+    "goal": "Choose a direction for the Bean & Co. rebrand and decide who prepares what for Friday's client review",
+    "scope": "Two routes the client can react to on Friday",
+    "criteria": "Distinctive, works at small sizes, accessible, feasible within the client's budget",
+    "industry": "Brand and packaging design"
+  },
+  "cases": [
+    {
+      "id": "h-capable-team",
+      "about": "团队自己纠正了一个错误说法、自己控时间、自己提了风险。全程不需要任何队友。",
+      "durationMin": 15,
+      "expect": [],
+      "items": [
+        { "t": 3, "speaker": "s1", "text": "Fifteen minutes. I'd like two routes agreed by ten past, then five minutes for who does what." },
+        { "t": 12, "speaker": "s2", "text": "Route one is the hand-drawn cup, warm and a bit retro. Route two is just the wordmark in a heavy serif." },
+        { "t": 22, "speaker": "s3", "text": "The cup is risky at small sizes, it turns into a blob on the loyalty card." },
+        { "t": 30, "speaker": "s2", "text": "I tested it at sixteen pixels this morning. It holds if we drop the steam lines." },
+        { "t": 39, "speaker": "s4", "text": "For the menu boards, light grey text on cream is fine, the standard only asks for three to one." },
+        { "t": 47, "speaker": "s3", "text": "That's for large text. Body text needs four point five to one, so grey on cream fails. We need the dark brown." },
+        { "t": 56, "speaker": "s4", "text": "You're right, I mixed them up. Dark brown then." },
+        { "t": 62, "speaker": "s1", "text": "Good. Before we lock both routes, what could make the client reject them?" },
+        { "t": 70, "speaker": "s2", "text": "Budget. Route one needs custom illustration, that's two extra days they haven't agreed to." },
+        { "t": 78, "speaker": "s1", "text": "Then we show route one with a note on the extra cost and let them choose. Both routes go forward." },
+        { "t": 87, "speaker": "s3", "text": "Fine by me, with that caveat." },
+        { "t": 91, "speaker": "s1", "text": "Ava takes route one, Ben route two, Lin the menu boards, I'll write the cost note. Four minutes used, we're early." }
+      ]
+    },
+    {
+      "id": "h-wrong-standard-accepted",
+      "about": "一个错误的无障碍标准被当作事实接受，并据此定了配色。没有人把关。",
+      "durationMin": 15,
+      "expect": [{ "teammate": "sage", "from": 20, "to": 44 }],
+      "items": [
+        { "t": 4, "speaker": "s1", "text": "Let's settle the menu board colours first." },
+        { "t": 11, "speaker": "s4", "text": "Light grey text on cream looks elegant. And it's accessible, the standard only requires three to one contrast for body text." },
+        { "t": 20, "speaker": "s2", "text": "Oh nice, then we can keep the soft palette." },
+        { "t": 26, "speaker": "s1", "text": "Great, grey on cream it is. Lin, can you apply that across all twelve boards?" },
+        { "t": 34, "speaker": "s4", "text": "Sure, I'll start with the breakfast menu." },
+        { "t": 42, "speaker": "s2", "text": "I'll update the palette page to match." }
+      ]
+    },
+    {
+      "id": "h-question-taken-on",
+      "about": "有人问名字有没有被注册，没人知道，但 Ben 主动说现在去查。有人接了研究的活。",
+      "durationMin": 15,
+      "expect": [],
+      "items": [
+        { "t": 4, "speaker": "s2", "text": "For the sub-brand I like the name Slow Pour." },
+        { "t": 10, "speaker": "s1", "text": "Is that already trademarked by someone? It rings a bell." },
+        { "t": 16, "speaker": "s4", "text": "No idea." },
+        { "t": 20, "speaker": "s3", "text": "I've got the trademark register open, give me a minute and I'll tell you." },
+        { "t": 27, "speaker": "s1", "text": "Thanks. Meanwhile, Ava, what's the second name option?" },
+        { "t": 33, "speaker": "s2", "text": "Second option is Morning Ritual." }
+      ]
+    },
+    {
+      "id": "h-question-dropped",
+      "about": "有人问竞争对手是不是已经用了绿色杯子，没人知道，团队直接决定用绿色。没有人去查。",
+      "durationMin": 15,
+      "expect": [{ "teammate": "scout", "from": 16, "to": 36 }],
+      "items": [
+        { "t": 4, "speaker": "s2", "text": "I'd make the cup green. It stands out on the shelf." },
+        { "t": 10, "speaker": "s1", "text": "Doesn't one of the big chains already own the green cup look? Which one was it?" },
+        { "t": 16, "speaker": "s3", "text": "Hmm, can't think of one off the top of my head." },
+        { "t": 21, "speaker": "s4", "text": "Me neither. It's probably fine." },
+        { "t": 26, "speaker": "s2", "text": "Okay, green it is. I'll build the mockups in green tonight." },
+        { "t": 34, "speaker": "s1", "text": "Good, next topic." }
+      ]
+    },
+    {
+      "id": "h-weekend-tangent",
+      "about": "聊周末聊了四五轮，没有人往回拉。",
+      "durationMin": 15,
+      "expect": [{ "teammate": "pilot", "from": 22, "to": 46 }],
+      "items": [
+        { "t": 4, "speaker": "s1", "text": "Right, two routes to choose from today." },
+        { "t": 10, "speaker": "s3", "text": "Before that, is anyone going to the design fair on Saturday?" },
+        { "t": 16, "speaker": "s2", "text": "I am! I got tickets for the letterpress workshop." },
+        { "t": 22, "speaker": "s4", "text": "I went last year, the queue for that workshop was an hour." },
+        { "t": 28, "speaker": "s3", "text": "An hour? Maybe I'll just do the print market instead." },
+        { "t": 34, "speaker": "s2", "text": "The print market is great, I spent way too much there." },
+        { "t": 40, "speaker": "s4", "text": "There's a good ramen place around the corner as well." }
+      ]
+    },
+    {
+      "id": "h-instant-yes",
+      "about": "提议彻底扔掉用了二十年的旧标志，所有人立刻同意并开始分工，没有人提任何顾虑。",
+      "durationMin": 15,
+      "expect": [{ "teammate": "rebel", "from": 14, "to": 34 }],
+      "items": [
+        { "t": 4, "speaker": "s2", "text": "My proposal: we drop the old cup logo completely. New name, new mark, nothing carried over." },
+        { "t": 12, "speaker": "s3", "text": "Love it. Clean break." },
+        { "t": 14, "speaker": "s4", "text": "Yes, totally agree." },
+        { "t": 17, "speaker": "s1", "text": "Great, we're all aligned. Let's go all in on the new mark." },
+        { "t": 24, "speaker": "s2", "text": "I'll start sketching tonight." },
+        { "t": 30, "speaker": "s3", "text": "I'll pull the old logo off the templates." }
+      ]
+    },
+    {
+      "id": "h-late-but-converging",
+      "about": "时间已经用了八成，但团队正在自己收尾：总结决定、认领任务。不需要催。",
+      "durationMin": 15,
+      "expect": [],
+      "items": [
+        { "t": 5, "speaker": "s1", "text": "Today: pick two routes and split the prep." },
+        { "t": 395, "speaker": "s3", "text": "My concern with the hand-drawn cup is cost. Custom illustration is two extra days the client has not agreed to." },
+        { "t": 406, "speaker": "s2", "text": "True. We could show it anyway and state the extra cost up front." },
+        { "t": 415, "speaker": "s1", "text": "I can live with that. Let's keep going through the wordmark options." },
+        { "t": 700, "speaker": "s1", "text": "Okay, three minutes left, let me sum up. We take the wordmark route and the hand-drawn cup route to the client." },
+        { "t": 712, "speaker": "s2", "text": "Yes. And the cup goes with a note about the extra illustration cost, since that was Ben's concern." },
+        { "t": 722, "speaker": "s3", "text": "Good. I'll build the wordmark boards." },
+        { "t": 729, "speaker": "s2", "text": "I'll do the cup boards and the cost note." },
+        { "t": 736, "speaker": "s4", "text": "I'll take the menu mockups for both." },
+        { "t": 743, "speaker": "s1", "text": "And I'll write the intro for Friday. That's everything, with two minutes to spare." }
+      ]
+    }
+  ]
+}

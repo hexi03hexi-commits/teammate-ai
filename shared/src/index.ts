@@ -63,6 +63,8 @@ export interface SessionConfig {
   /** 这场讨论计划多长（分钟），Pilot 判断超时用 */
   durationMin: number;
   speakers: Speaker[];
+  /** 哪个团队在开会。服务端用它在多场会议之间保留只有它自己知道的东西（成员画像）。 */
+  teamId?: string;
 }
 
 export type SessionPhase = "setup" | "live" | "ended";

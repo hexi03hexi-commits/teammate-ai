@@ -10,9 +10,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { DEMO_CONFIG, emptySnapshot, type Card, type Utterance } from "@teammate/shared";
+import { DEMO_CONFIG, emptySnapshot, TEAMMATE_IDS, type Card, type Utterance } from "@teammate/shared";
 import { fmtClock, type MeetingContext } from "./context.ts";
-import { decide } from "./orchestrator.ts";
+import { decide, newMemory } from "./orchestrator.ts";
 import { runRole } from "./roles.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -43,6 +43,7 @@ const ctx: MeetingContext = {
   transcript: [],
   teammates: emptySnapshot().teammates,
   cards: [],
+  memory: newMemory(),
 };
 const nameOf = (id: string) => DEMO_CONFIG.speakers.find((s) => s.id === id)?.name ?? id;
 
@@ -59,11 +60,30 @@ for (const [i, item] of items.entries()) {
   ctx.elapsedMs = u.t;
   console.log(`\n[${fmtClock(u.t)}] ${u.speakerName}: ${u.text}`);
 
+  // 和服务端一致：被点名时跳过主 agent，直接让那个队友回答
+  const called = TEAMMATE_IDS.find((id) => new RegExp(`\\b(hey|hi|ok|okay)[,\\s]+${id}\\b`, "i").test(u.text));
+  if (called) {
+    console.log(`    ▶ ${called.toUpperCase()} called by name`);
+    if (withRoles) {
+      const roleStarted = Date.now();
+      const out = await runRole(called, ctx, `${u.speakerName} asked you directly: "${u.text}". Answer the question.`, 3);
+      console.log(`      card (${Date.now() - roleStarted}ms): ${out.title}\n        ${out.body}\n        say: “${out.say}”`);
+      ctx.cards.push({ id: `c${ctx.cards.length}`, teammate: called, level: 3, status: "active", t: u.t, ...out });
+    }
+    continue;
+  }
+
   const started = Date.now();
   const d = await decide(ctx);
   const ms = Date.now() - started;
   if (d.action === "stay_silent") {
     console.log(`    · silent (${ms}ms) — ${d.reason}`);
+    continue;
+  }
+  // 和服务端一致：任意两次主动介入之间至少隔 18 秒
+  const lastCard = ctx.cards.at(-1);
+  if (lastCard && u.t - lastCard.t < 18_000) {
+    console.log(`    · ${d.teammate} L${d.level} held back by the gap (${ms}ms) — ${d.reason}`);
     continue;
   }
   console.log(`    ▶ ${d.teammate.toUpperCase()} L${d.level} (${ms}ms) — ${d.reason}`);

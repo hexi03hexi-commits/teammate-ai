@@ -5,3 +5,5 @@ dist
 recordings/*.wav
 reference/
 demo/out/
+data/
+fixtures/eval/results-*.json
