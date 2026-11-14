@@ -1,5 +1,6 @@
 import { WebSocket } from "ws";
 import type { Speaker } from "@teammate/shared";
+import * as voiceprint from "./voiceprint.ts";
 
 /**
  * 真实麦克风 → Deepgram 流式识别 → session.onUtterance()
@@ -12,6 +13,9 @@ import type { Speaker } from "@teammate/shared";
  *   3. Deepgram 只给说话人编号（0、1、2…，按首次出现的顺序）。
  *      编号按出现顺序对应到 config.speakers，所以开场请大家按名单顺序各说一句。
  *
+ *   4. 如果这个团队录过声纹：每个新出现的声音，取它开头几秒去和声纹比对，对上了就绑定名字
+ *      （见 voiceprint.ts）。没录过、或没对上的，仍按出现顺序对应。
+ *
  * 回声屏蔽不在这里处理：队友发声期间 session.onUtterance 会自动丢弃输入。
  *
  * 用录音测试（不需要浏览器）：npm run asr:file -w server -- <音频文件>
@@ -23,7 +27,7 @@ import type { Speaker } from "@teammate/shared";
 
 /** LiveAudio 只需要会话的这两样东西，测试脚本可以给一个假的。 */
 export interface AsrSink {
-  snapshot: { config: { speakers: Speaker[] } | null };
+  snapshot: { config: { speakers: Speaker[]; teamId?: string } | null };
   onUtterance(input: { speakerId: string; text: string; isFinal: boolean }): void;
 }
 
@@ -38,11 +42,18 @@ const KEEPALIVE_MS = 4_000;
 const RECONNECT_MS = 1_000;
 /** 连接建立前最多缓存多少音频（约 5 秒），之后丢弃最旧的。 */
 const MAX_BACKLOG_BYTES = SAMPLE_RATE * 2 * 5;
+/** 为声纹比对保留最近多少音频（3 分钟） */
+const MAX_KEPT_BYTES = SAMPLE_RATE * 2 * 180;
+/** 一个新声音攒到多少秒时去比对声纹：先用 2.5 秒试，没对上就等攒得更多再试 */
+const VOICE_TRY_AT = [2.5, 5, 10];
 
 interface DgWord {
   word: string;
   punctuated_word?: string;
   speaker?: number;
+  /** 这个词在这条连接的音频里的起止时间（秒） */
+  start?: number;
+  end?: number;
 }
 
 interface DgMessage {
@@ -70,6 +81,16 @@ export class LiveAudio {
   private pending: { speaker: number; text: string; since: number } | null = null;
   /** Deepgram 的说话人编号 → 第几个出现 */
   private speakerOrder = new Map<number, number>();
+  /** 声纹确认过的：Deepgram 的说话人编号 → 成员 id */
+  private confirmed = new Map<number, string>();
+  /** 还没确认的声音：说话的时间段、累计秒数、已经比对过几次 */
+  private voices = new Map<number, { spans: [number, number][]; seconds: number; tries: number }>();
+  /** 这条连接上送出的音频（只留最近几分钟），用来按时间切出某个人的声音 */
+  /** 这场会议开始时，哪些成员录过声纹 */
+  private enrolledIds = new Set<string>();
+  private kept: Buffer[] = [];
+  private keptBytes = 0;
+  private droppedBytes = 0;
 
   private readonly language = "en";
   private readonly model = process.env.ASR_MODEL || "nova-3";
@@ -85,6 +106,11 @@ export class LiveAudio {
     }
     this.active = true;
     this.speakerOrder.clear();
+    this.confirmed.clear();
+    this.voices.clear();
+    const teamId = this.session.snapshot.config?.teamId;
+    this.enrolledIds = new Set(teamId ? voiceprint.enrolled(teamId) : []);
+    void voiceprint.ready();
     this.pending = null;
     this.ws?.terminate(); // 上一场还在收尾的连接
     this.ws = null;
@@ -100,7 +126,7 @@ export class LiveAudio {
     if (!this.active) return;
     this.lastAudioAt = Date.now();
     if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(chunk);
+      this.sendAudio(this.ws, chunk);
       return;
     }
     this.backlog.push(chunk);
@@ -153,7 +179,12 @@ export class LiveAudio {
 
     ws.on("open", () => {
       log(`connected — ${this.model}, ${this.language}`);
-      for (const chunk of this.backlog) ws.send(chunk);
+      // 新连接 = 新的时间轴和新的说话人编号
+      this.kept = [];
+      this.keptBytes = this.droppedBytes = 0;
+      this.voices.clear();
+      this.confirmed.clear();
+      for (const chunk of this.backlog) this.sendAudio(ws, chunk);
       this.backlog = [];
       this.backlogBytes = 0;
     });
@@ -212,6 +243,7 @@ export class LiveAudio {
       return;
     }
 
+    this.listenForVoices(alt?.words ?? []);
     for (const run of runs) {
       if (this.pending && this.pending.speaker !== run.speaker) this.flush(); // 换人了
       if (!this.pending) this.pending = { speaker: run.speaker, text: "", since: Date.now() };
@@ -247,14 +279,81 @@ export class LiveAudio {
     if (p?.text) this.session.onUtterance({ speakerId: this.speakerId(p.speaker), text: p.text, isFinal: true });
   }
 
-  /** 按首次出现的顺序对应到名单；超出名单人数的算作额外的人。 */
+  // ───────────── 谁是谁 ─────────────
+
+  /**
+   * 声纹确认过的用声纹的结果；其余的按首次出现的顺序，对应到还没被声纹认领的成员。
+   * 没认出来的声音优先对应没录过声纹的成员：录过的人本该被声纹认出来，认不出说明多半不是他。
+   * 超出名单人数的算作额外的人。
+   */
   private speakerId(dgSpeaker: number): string {
-    let order = this.speakerOrder.get(dgSpeaker);
-    if (order === undefined) {
-      order = this.speakerOrder.size;
-      this.speakerOrder.set(dgSpeaker, order);
-    }
+    const sure = this.confirmed.get(dgSpeaker);
+    if (sure) return sure;
+    if (!this.speakerOrder.has(dgSpeaker)) this.speakerOrder.set(dgSpeaker, this.speakerOrder.size);
     const speakers = this.session.snapshot.config?.speakers ?? [];
-    return speakers[order]?.id ?? `Speaker ${order + 1}`;
+    const claimed = new Set(this.confirmed.values());
+    const unclaimed = speakers.filter((sp) => !claimed.has(sp.id));
+    const free = [...unclaimed.filter((sp) => !this.enrolledIds.has(sp.id)), ...unclaimed.filter((sp) => this.enrolledIds.has(sp.id))];
+    const waiting = [...this.speakerOrder.keys()].filter((k) => !this.confirmed.has(k));
+    return free[waiting.indexOf(dgSpeaker)]?.id ?? `Speaker ${this.speakerOrder.get(dgSpeaker)! + 1}`;
+  }
+
+  private sendAudio(ws: WebSocket, chunk: Buffer) {
+    ws.send(chunk);
+    this.kept.push(chunk);
+    this.keptBytes += chunk.length;
+    while (this.keptBytes > MAX_KEPT_BYTES && this.kept.length > 1) {
+      const old = this.kept.shift()!;
+      this.keptBytes -= old.length;
+      this.droppedBytes += old.length;
+    }
+  }
+
+  /** 记下每个还没确认的声音在什么时间说了话；攒够了就拿去比对声纹。 */
+  private listenForVoices(words: DgWord[]) {
+    const teamId = this.session.snapshot.config?.teamId;
+    if (!teamId || !voiceprint.available()) return;
+    for (const w of words) {
+      const k = w.speaker ?? 0;
+      if (w.start === undefined || w.end === undefined || this.confirmed.has(k)) continue;
+      const v = this.voices.get(k) ?? { spans: [], seconds: 0, tries: 0 };
+      const last = v.spans[v.spans.length - 1];
+      if (last && w.start - last[1] < 0.3) last[1] = w.end;
+      else v.spans.push([w.start, w.end]);
+      v.seconds += w.end - w.start;
+      this.voices.set(k, v);
+    }
+    for (const [k, v] of this.voices) {
+      if (this.confirmed.has(k) || v.tries >= VOICE_TRY_AT.length || v.seconds < VOICE_TRY_AT[v.tries]) continue;
+      v.tries++;
+      this.nameByVoice(teamId, k, v.spans);
+    }
+  }
+
+  private nameByVoice(teamId: string, dgSpeaker: number, spans: [number, number][]) {
+    const speakers = this.session.snapshot.config?.speakers ?? [];
+    const claimed = new Set(this.confirmed.values());
+    const among = speakers.filter((sp) => !claimed.has(sp.id)).map((sp) => sp.id);
+    // 按时间从保留的音频里切出这个人说的那几段
+    const all = Buffer.concat(this.kept);
+    const bytesPerSecond = SAMPLE_RATE * 2;
+    const parts: Buffer[] = [];
+    for (const [a, b] of spans) {
+      const from = Math.max(0, Math.floor(a * SAMPLE_RATE) * 2 - this.droppedBytes);
+      const to = Math.min(all.length, Math.ceil(b * SAMPLE_RATE) * 2 - this.droppedBytes);
+      if (to - from > bytesPerSecond * 0.2) parts.push(all.subarray(from, to));
+    }
+    const { match, scores } = voiceprint.identify(teamId, Buffer.concat(parts), among);
+    const name = (id: string) => speakers.find((sp) => sp.id === id)?.name ?? id;
+    const detail = Object.entries(scores)
+      .map(([id, x]) => `${name(id)} ${x.toFixed(2)}`)
+      .join(", ");
+    if (!match) {
+      if (detail) log(`voice ${dgSpeaker}: no confident match yet (${detail})`);
+      return;
+    }
+    this.confirmed.set(dgSpeaker, match.memberId);
+    this.voices.delete(dgSpeaker);
+    log(`voice ${dgSpeaker} is ${name(match.memberId)} (${detail})`);
   }
 }

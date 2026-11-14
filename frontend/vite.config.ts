@@ -16,6 +16,7 @@ export default defineConfig(({ mode }) => ({
     proxy: {
       "/ws": { target: "ws://localhost:8787", ws: true, changeOrigin: true },
       "/health": { target: "http://localhost:8787", changeOrigin: true },
+      "/voiceprints": { target: "http://localhost:8787", changeOrigin: true },
     },
   },
 }));

@@ -12,8 +12,8 @@ export interface Member {
   name: string;
   skill?: string;
   /**
-   * Set once this person has recorded their self-introduction.
-   * `bars` is the loudness outline of that recording, kept only to draw it; the audio itself is not stored.
+   * The loudness outline of this person's last accepted voice recording, kept only to draw it.
+   * Whether they are enrolled is the server's call (it holds the voiceprint); see lib/voiceprints.ts.
    */
   voice?: { enrolledAt: number; bars: number[] };
 }
@@ -233,6 +233,16 @@ export function addMeeting(teamId: string, meeting: Omit<Meeting, "id">): Meetin
 
 export function updateTeam(teamId: string, patch: Partial<Omit<Team, "id" | "meetings" | "members">>) {
   commit(teams.map((t) => (t.id === teamId ? { ...t, ...patch } : t)));
+}
+
+export function addMember(teamId: string, name: string, skill: string): Member {
+  const member: Member = { id: uid("p"), name, skill: skill || undefined };
+  commit(teams.map((t) => (t.id === teamId ? { ...t, members: [...t.members, member] } : t)));
+  return member;
+}
+
+export function removeMember(teamId: string, memberId: string) {
+  commit(teams.map((t) => (t.id === teamId ? { ...t, members: t.members.filter((m) => m.id !== memberId) } : t)));
 }
 
 export function updateMember(teamId: string, memberId: string, patch: Partial<Omit<Member, "id">>) {

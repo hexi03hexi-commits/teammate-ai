@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import type { TeammateId } from "@teammate/shared";
 import { AgentFigure } from "../../agents/AgentFigure";
-import { updateMember, updateTeam, type Team } from "../../store/teams";
+import { addMember, removeMember, updateMember, updateTeam, type Team } from "../../store/teams";
 import { IconButton } from "../../ui/kit";
 import { Voices } from "./Voices";
 
@@ -9,11 +9,10 @@ import { Voices } from "./Voices";
  * What stays true across a team's meetings, editable at any time:
  *   Brief   the target, how the work is judged, and the track. Every meeting of this team uses it;
  *           a meeting itself only adds a topic and a length.
- *   Voices  each person's self-introduction, for telling speakers apart.
+ *   People  who is on the team, and each person's recorded voice, used to put names on speakers.
  * Changes save as you type.
  */
 export function TeamSettings({ team, onClose }: { team: Team; onClose?: () => void }) {
-  const enrolled = team.members.filter((m) => m.voice).length;
   return (
     <div className="flex flex-col gap-8">
       <header className="flex items-start justify-between gap-4">
@@ -54,11 +53,14 @@ export function TeamSettings({ team, onClose }: { team: Team; onClose?: () => vo
       </section>
 
       <section>
-        <Label count={`${enrolled}/${team.members.length}`}>Voices</Label>
+        <Label count={String(team.members.length)}>People</Label>
         <Voices
+          teamId={team.id}
           members={team.members}
           onSkill={(id, skill) => updateMember(team.id, id, { skill })}
-          onEnrolled={(id, bars) => updateMember(team.id, id, { voice: { enrolledAt: Date.now(), bars } })}
+          onRecorded={(id, bars) => updateMember(team.id, id, { voice: { enrolledAt: Date.now(), bars } })}
+          onAdd={(name, skill) => addMember(team.id, name, skill)}
+          onRemove={(id) => removeMember(team.id, id)}
         />
       </section>
     </div>

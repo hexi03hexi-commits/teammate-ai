@@ -22,10 +22,12 @@ export function wsUrl(): string {
   return `ws://${window.location.hostname}:${DEFAULT_PORT}`;
 }
 
-/** The server's /health endpoint, reached the same way as the WebSocket. */
-export function healthUrl(): string {
+/** A plain HTTP path on the session server (e.g. "/health"), reached the same way as the WebSocket. */
+export function serverUrl(path: string): string {
   const override = params.get("ws");
-  if (override) return new URL("/health", override.replace(/^ws/, "http")).toString();
-  if (window.location.protocol === "https:") return "/health";
-  return `http://${window.location.hostname}:${DEFAULT_PORT}/health`;
+  if (override) return new URL(path, override.replace(/^ws/, "http")).toString();
+  if (window.location.protocol === "https:") return path;
+  return `http://${window.location.hostname}:${DEFAULT_PORT}${path}`;
 }
+
+export const healthUrl = () => serverUrl("/health");

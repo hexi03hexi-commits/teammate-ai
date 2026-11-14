@@ -14,6 +14,7 @@
   "dependencies": {
     "@teammate/agents": "*",
     "@teammate/shared": "*",
+    "sherpa-onnx-node": "^2.0.1",
     "ws": "^8.23.0"
   },
   "devDependencies": {

@@ -6,6 +6,7 @@ import { config } from "./config.ts";
 import { Session, type Brain } from "./session.ts";
 import { Replay } from "./replay.ts";
 import { LiveAudio } from "./audio/asr.ts";
+import * as voiceprint from "./audio/voiceprint.ts";
 
 const clients = new Map<WebSocket, ClientRole>();
 
@@ -38,8 +39,70 @@ session.onPause = (paused) => {
   else replay.resume();
 };
 
+/** 读完请求体（声纹录音：十秒以内的 16kHz PCM，几百 KB） */
+function readBody(req: http.IncomingMessage, limit = 2_000_000): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    req.on("data", (c: Buffer) => {
+      size += c.length;
+      if (size > limit) {
+        reject(new Error("body too large"));
+        req.destroy();
+      } else chunks.push(c);
+    });
+    req.on("end", () => resolve(Buffer.concat(chunks)));
+    req.on("error", reject);
+  });
+}
+
+/**
+ * 声纹录入接口（团队设置页用）：
+ *   GET    /voiceprints?team=ID            → { available, enrolled: [成员 id] }
+ *   POST   /voiceprints?team=ID&member=ID  → 请求体是 16kHz 单声道 16 位 PCM；加 &replace=1 表示重录
+ *   DELETE /voiceprints?team=ID&member=ID
+ * 声纹只存在服务端，这些接口不返回声纹本身。
+ */
+async function handleVoiceprints(req: http.IncomingMessage, res: http.ServerResponse, url: URL) {
+  const team = url.searchParams.get("team");
+  const member = url.searchParams.get("member");
+  const json = (status: number, body: unknown) => {
+    res.statusCode = status;
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify(body));
+  };
+  if (!team) return json(400, { ok: false, reason: "missing team" });
+  const usable = await voiceprint.ready();
+  if (req.method === "GET") return json(200, { available: usable, enrolled: voiceprint.enrolled(team) });
+  if (!member) return json(400, { ok: false, reason: "missing member" });
+  if (req.method === "DELETE") {
+    voiceprint.forget(team, member);
+    return json(200, { ok: true });
+  }
+  if (req.method === "POST") {
+    const result = voiceprint.enrol(team, member, await readBody(req), url.searchParams.get("replace") === "1");
+    return json(result.ok ? 200 : 422, result);
+  }
+  json(405, { ok: false, reason: "method not allowed" });
+}
+
 const server = http.createServer((req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  if (req.method === "OPTIONS") {
+    res.statusCode = 204;
+    return res.end();
+  }
+  const url = new URL(req.url ?? "/", "http://localhost");
+  if (url.pathname === "/voiceprints") {
+    handleVoiceprints(req, res, url).catch((err) => {
+      console.error("[voice]", err);
+      res.statusCode = 500;
+      res.end(JSON.stringify({ ok: false, reason: "error" }));
+    });
+    return;
+  }
   if (req.url === "/health") {
     res.setHeader("Content-Type", "application/json");
     res.end(JSON.stringify({ ok: true, mode: config.mode, phase: session.snapshot.phase, clients: clients.size }));
@@ -77,6 +140,7 @@ wss.on("connection", (ws) => {
 });
 
 server.listen(config.port, () => {
+  void voiceprint.ready(); // 提前加载声纹模型（第一次会下载）
   console.log(`Teammate AI server on :${config.port} — mode: ${config.mode}`);
   if (config.mode !== "scripted" && !process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_AUTH_TOKEN) {
     console.warn("没有检测到 ANTHROPIC_API_KEY：agent 调用可能失败。把 key 写进 .env，或改用 MODE=scripted。");

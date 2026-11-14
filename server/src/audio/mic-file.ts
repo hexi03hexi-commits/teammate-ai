@@ -26,17 +26,20 @@ const flag = (name: string) => {
 };
 const names = flag("speakers")?.split(",");
 const minutes = Number(flag("minutes") ?? 5);
+/** 团队 id：服务端按它取成员画像和声纹 */
+const teamId = flag("team");
 /** 录音放完后再等多久（秒），让还在准备的队友把话说完 */
 const tailS = Number(flag("tail") ?? 25);
 const file = args[0];
 if (!file) {
-  console.error("用法：npm run mic:file -w server -- <音频文件> [--speakers 名字1,名字2] [--minutes 5] [--tail 25]");
+  console.error("用法：npm run mic:file -w server -- <音频文件> [--speakers 名字1,名字2] [--minutes 5] [--team 团队id] [--tail 25]");
   process.exit(1);
 }
 
 const config: SessionConfig = {
   ...DEMO_CONFIG,
   durationMin: minutes,
+  teamId,
   speakers: names ? names.map((name, i) => ({ id: `s${i + 1}`, name })) : DEMO_CONFIG.speakers,
 };
 
