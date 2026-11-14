@@ -1,17 +1,54 @@
 # Teammate AI
 
-放在桌上的一组 AI 队友：在 4 人黑客松头脑风暴中，自动识别团队缺哪种角色，默默启用对应的队友，用共享卡片和语音补位。
+AI teammates that sit in on a small team's brainstorm and fill the role nobody is playing.
 
-| 队友 | 角色 | 补什么位 |
+A four-person hackathon team rarely has a facilitator, a researcher, a domain expert and a sceptic all at the table. Teammate AI listens to the meeting on one shared device and brings in a specialist only when that role is missing. If someone on the team is already keeping time, the timekeeper stays asleep. If someone has already raised the risk, nobody repeats it. Most of the time the right thing for it to do is nothing.
+
+## The teammates
+
+| Teammate | Role | Steps in when |
 |---|---|---|
-| Pilot | 主持 | 没人控场：超时、跑题、偏离评分标准 |
-| Scout | 研究员 | 信息不足：有没有人做过、提到的产品是什么 |
-| Sage | 领域专家 | 未经验证的事实断言 |
-| Rebel | 唱反调者 | 太快达成一致、没人提风险 |
+| **Atlas** | Coordinator | Always listening. Answers when you speak to it by name, and decides when to wake the others. |
+| **Pilot** | Facilitator | Nobody is steering: the talk has drifted, time is running out, no decision is forming. |
+| **Scout** | Researcher | The team needs a fact from outside the room, such as whether a product already exists. It searches the web and cites sources. |
+| **Sage** | Domain expert | A claim about the field is accepted without anyone checking it. |
+| **Rebel** | Devil's advocate | The team is about to commit and nobody has voiced a risk. |
 
-## 5 分钟跑起来
+Each specialist has a paired rule: what it looks like when the role is empty, and what it looks like when a person is already filling it. The second case means silence.
 
-需要 Node.js 22 以上。
+## What it does
+
+- **Listens live.** The browser streams the microphone to the server, where speech is transcribed and split by speaker.
+- **Knows who is talking.** Each person records a few seconds of speech once. After that their voice is matched to their name in every meeting.
+- **Decides whether to step in.** After each pause, Atlas reads the whole conversation and decides to stay quiet, keep watching something, or send in one specialist with a brief.
+- **Speaks at the right moment.** A teammate waits for a gap in the conversation, says one short line aloud, and shows a small box under it only when there is something to add, such as a number or sources.
+- **Answers questions.** Say "Atlas, how much time do we have left?" and it answers. If the question needs a web search or a fact check, it passes it to Scout or Sage, shown as a note flying across the screen.
+- **Can be told to wait.** Say "not now, Atlas" or mute a single teammate.
+- **Writes the minutes.** When the meeting ends you get a summary, the decision, who took which task, open risks, and what each teammate contributed.
+- **Learns how the team works.** After each meeting it keeps private notes on each person's habits, such as who tends to keep time. These are background for the next meeting only: what happens in the room always decides.
+
+## How it works
+
+```
+microphone → speech-to-text + speaker split → voiceprint match
+          → Atlas decides: silent / keep watching / send a specialist
+          → specialist writes its line (Scout searches the web)
+          → wait for a pause, check cooldowns → spoken line and card on every device
+```
+
+One rule shapes the design: **the models decide whether to speak, who speaks and what is said; plain code decides when it is actually said.** Pause detection, the speaking queue, cooldowns, expiry of stale remarks, mute and echo suppression are deterministic and live in `server/src/session.ts`, with their timings in `server/src/config.ts`.
+
+| Job | Model | Why |
+|---|---|---|
+| Atlas: deciding after every pause, answering questions | `claude-sonnet-5-5` | Runs constantly, so it has to be fast and steady |
+| Pilot, Scout, Sage, Rebel; meeting minutes; private notes | `claude-opus-5-5` | Runs rarely, and its words are what the team hears |
+| Keyword chips on the listening screen | `claude-haiku-5-5` | Cosmetic and frequent |
+
+Speech-to-text is Deepgram `nova-3` with speaker diarization. Voiceprints run locally on the server with `sherpa-onnx`.
+
+## Quick start
+
+Requires Node.js 22 or later.
 
 ```bash
 npm install
@@ -25,95 +62,98 @@ cp .env.example .env
 npm run dev
 ```
 
-然后打开 <http://localhost:5173>：选一个团队 → New meeting → 输入议题 → Start。默认是 `scripted` 模式：播放一段写死的对话和卡片，**不需要任何 API key**。
+Open <http://localhost:5173>, pick a team, start a new meeting, enter a topic and a length, and press start.
 
-其他设备连入：打开同一地址加上 `?role=viewer`。
+Out of the box this runs in `scripted` mode, which plays a fixed conversation and fixed cards and **needs no API keys**. It is the quickest way to see the interface.
 
-## 三种模式
+Other devices on the same network can follow the meeting by opening the same address with `?role=viewer`.
 
-在 `.env` 里改 `MODE`：
+## Modes
 
-| 模式 | 对话来源 | 卡片来源 | 需要的 key |
+Set `MODE` in `.env`.
+
+| Mode | Conversation comes from | Teammates are | Keys needed |
 |---|---|---|---|
-| `scripted` | `fixtures/brainstorm.json` | 同一文件里写死的 | 无 |
-| `replay` | `fixtures/brainstorm.json` | 真实 agent | `ANTHROPIC_API_KEY` |
-| `live` | 主设备的麦克风 | 真实 agent | 加上 `DEEPGRAM_API_KEY` |
+| `scripted` | `fixtures/brainstorm.json` | Written in the same file | None |
+| `replay` | `fixtures/brainstorm.json` | Real models | `ANTHROPIC_API_KEY` |
+| `live` | The host device's microphone | Real models | `ANTHROPIC_API_KEY` and `DEEPGRAM_API_KEY` |
 
-`REPLAY_SPEED=5` 可以快进回放，停顿和冷却时间会按同样倍数缩短。
+`REPLAY_SPEED=5` fast-forwards a replay. Pauses and cooldowns shrink by the same factor.
 
-### live 模式
+### Running a live meeting
 
-在 `.env` 里设 `MODE=live`。语音识别按英语进行，会议请用英语。
+- **Language.** Meetings are in English.
+- **Voices.** In a team's settings, record each person speaking for a few seconds. A person with no recording is matched to the roster in the order they first speak.
+- **Voiceprint model.** About 40 MB, downloaded to `data/models/` the first time the server starts.
+- **Microphone on a tablet.** Browsers allow the microphone only on `https` or `localhost`. To use an iPad on the local network, run the server and the page with the two commands below, then open `https://<your computer's LAN address>:5173`. The certificate is self-signed, so the browser asks once before continuing.
 
-- **谁是谁**：语音识别负责把不同的声音分开，声纹负责给每个声音对上名字。在团队设置里给每个人录一段自我介绍（约 6 秒，用开会时的语言）；开会时每个新出现的声音会和这些声纹比对，对上了就显示名字。没录声纹的人按第一次开口的顺序对应到名单。
-- **声纹存在哪**：只存在服务端的 `data/voiceprints.json`（向量，不是录音），不发给任何设备，不进 git。声纹模型约 40MB，第一次启动时自动下载到 `data/models/`。判定线可以用 `VOICE_THRESHOLD` 调（默认 0.38；服务端日志里会打印每次比对的分数）。
-- **麦克风权限**：浏览器只在 https 或 `localhost` 下允许用麦克风。iPad 通过局域网访问时，用 `npm run dev:https -w frontend` 启动页面（自签证书，首次打开要点一次"继续访问"），然后打开 `https://<电脑的局域网 IP>:5173`。页面右上角出现麦克风图标表示正在收音，红色表示被拦了。
-- **不用浏览器测试识别**：`npm run asr:file -w server -- recordings/某段录音.wav --speakers Henry,Ava`，把一段录音按实时速度送进同一条链路，只打印识别结果，不调用 agent。加 `--speed 3` 可以快进。
-- **不用浏览器测试整条链路**：先以 live 模式启动服务端，再运行 `npm run mic:file -w server -- recordings/某段录音.wav --speakers Henry,Ava --minutes 15`。它把录音当作主设备的麦克风：识别、主 agent、角色 agent、会后纪要都真实运行（会调用两家的 API），结果打印在终端。
-
-## 结构
-
-```
-shared/src/index.ts    三方共用的事件格式。唯一的接口，改之前在群里说一声
-fixtures/              测试用的对话
-frontend/              界面（A）
-server/                语音链路、调度、WebSocket（老师）
-agents/                主 agent 和四个角色（B）
+```bash
+npm run dev:server
 ```
 
-数据流：
-
-```
-麦克风 → 语音识别 → session.onUtterance() → 主 agent 判断 → 角色 agent 写内容
-       → session.intervene() → 等停顿 / 冷却 → 卡片和语音推送到所有设备
+```bash
+npm run dev:https -w frontend
 ```
 
-分工原则：**agent 决定说不说、谁说、说什么；确定性代码决定什么时候真的说出口**（停顿、冷却、排队、过期、静音、回声屏蔽都在 `server/src/session.ts`）。
+### Testing without a room full of people
 
-## 各人从哪里开始
+Play a recording into a live meeting as if it were the microphone. Everything runs for real, including both APIs, and the result prints in the terminal. Start the server in `live` mode first.
 
-### A · 界面 — `frontend/`
+```bash
+npm run mic:file -w server -- recordings/session.wav --speakers Henry,Ava --minutes 15
+```
 
-- 三个页面：`pages/HomePage`（团队列表 + 主 agent）、`pages/TeamPage`（成员、历史、纪要、新会议）、`pages/MeetingPage`（倾听与 agent 发言）。
-- Agent 形象在 `frontend/src/agents/`：`Blob.tsx` 是 three.js 液态身体，`Face.tsx` 是表情，`Prop.tsx` 是道具。打开 `/?lab=1` 可以看所有 agent 的所有状态。
-- 团队和历史会议存在浏览器 localStorage 里（`store/teams.ts`），清除后回到示例数据。
-- 所有能收到和能发出的事件都在 `shared/src/index.ts`。
-- 队友的名字和主色在 `shared/src/index.ts` 的 `TEAMMATES`，渐变色在 `frontend/src/agents/meta.ts`。
+Check transcription and speaker split on a recording, without calling any model:
 
-### B · Agent — `agents/`
+```bash
+npm run asr:file -w server -- recordings/session.wav --speakers Henry,Ava
+```
 
-- 把 `ANTHROPIC_API_KEY` 写进 `.env`，然后：
+## Evaluating when it steps in
 
-  ```bash
-  npm run agents:dry
-  ```
+Staying quiet at the right time is the product, so it is tested directly. `fixtures/eval/` holds short scenarios in pairs: the same situation once with the role empty, where a specialist should appear, and once with a person filling it, where nothing should happen.
 
-  它把 `fixtures/brainstorm.json` 逐句喂给 agent，打印每句话后的决定、卡片内容和耗时。加 `-- --no-roles` 只看主 agent 的决定。
-- 主 agent 的提示词：`agents/src/orchestrator.ts` 的 `ORCHESTRATOR_PROMPT`。
-- 四个角色的提示词：`agents/src/roles.ts` 的 `ROLE_PROMPTS` 和 `SHARED_RULES`。
-- 模型在 `.env` 里换：`ORCHESTRATOR_MODEL`、`ROLE_MODEL`，默认都是 `claude-opus-5-5`。
-- 调参方法：改提示词 → 重跑同一段对话 → 对比介入的时机和内容。录好真实的头脑风暴后，把文字稿整理成同样格式放进 `fixtures/`。
+```bash
+npm run agents:eval
+```
 
-### 老师 · 语音链路 — `server/`
+There are three sets: `cases` (12 scenarios), `holdout` (7, kept aside from prompt tuning) and `personas` (6, testing that private notes inform a decision without overriding the room). Each scenario runs 3 times by default. Choose a set with `-- --file holdout` and change the repeat count with `-- --runs 5`.
 
-- `server/src/audio/asr.ts`：接入流式语音识别。文件里写了建议的数据流；产出只有一个调用：`session.onUtterance({ speakerId, text, isFinal })`。
-- `server/src/audio/tts.ts`：接入 TTS。现在返回 `null`，前端用浏览器自带的语音兜底。
-- 停顿、冷却等时间常数：`server/src/config.ts`。
-- 冒烟测试（服务端跑起来后）：
+The current prompt passes all 36 runs of `cases`. In a side-by-side on all three sets, Sonnet 5.5 passed 50 of 50 runs. Haiku 5.5 was close but less consistent from run to run, which is why Atlas runs on Sonnet.
 
-  ```bash
-  npm run smoke -w server
-  ```
+To watch the decisions on a full conversation, one utterance at a time:
 
-### Henry · 产品和视频
+```bash
+npm run agents:dry
+```
 
-- 队友的语气和卡片写法：和 B 一起改 `agents/src/roles.ts`。
-- 演示对话：`fixtures/brainstorm.json`。视频脚本可以直接从这里改。
-- 评判介入合不合理：跑 `npm run agents:dry`，逐条看“该说的说了吗、不该说的说了吗”。
+## Project layout
 
-## 还没做的
+```
+shared/src/index.ts   The event contract shared by the browser, the server and the agents
+agents/               Atlas, the four specialists, minutes, private notes, keywords, evals
+server/               Session timing, WebSocket hub, speech-to-text, voiceprints
+frontend/             The interface: teams, team page with minutes, the meeting screen
+fixtures/             The demo conversation and the eval scenarios
+demo/                 Script that records a walkthrough video of the interface
+```
 
-- 真实语音识别和说话人区分（`server/src/audio/asr.ts`）
-- 真实 TTS 音色（`server/src/audio/tts.ts`）
-- 录一段自己的 20 分钟英语头脑风暴作为调参素材
-- iPad 访问需要 HTTPS 才能用麦克风：用 Cloudflare Tunnel 或类似工具把本地端口暴露出去
+The agent figures are drawn in code: a three.js liquid body, an SVG face and an object for each specialist, all in `frontend/src/agents/`. In development, `/?lab=1` shows every figure in every state.
+
+Built with TypeScript throughout: React 19, Vite, Tailwind CSS, Motion and three.js in the browser; Node.js with `ws` on the server; the Anthropic SDK with structured outputs and the web search tool for the agents.
+
+## Privacy
+
+- Voiceprints are stored as numeric vectors, not audio, in `data/voiceprints.json` on the server. They are never sent to a browser.
+- Private notes about how each person works are stored in `data/personas.json` on the server and are read only by Atlas. They are never shown on screen.
+- Deleting a team deletes its voiceprints and notes.
+- `data/`, `.env` and recordings are excluded from the repository.
+
+## Known limits
+
+- Teammates speak with the browser's built-in speech voice. Dedicated voices are not connected yet.
+- While a teammate is speaking, what people say is not heard. This stops the device from listening to itself.
+- Voiceprints are matched within one language: someone enrolled in Mandarin is not recognised when speaking English, so enrol in the language of the meeting.
+- A new voice takes about two seconds of speech to be named.
+- The export button on the minutes and the invite link for a new team are placeholders.
+- Teams and past meetings are stored in the browser, so they do not sync between devices.
