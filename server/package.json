@@ -8,7 +8,8 @@
     "start": "tsx src/index.ts",
     "typecheck": "tsc --noEmit -p .",
     "smoke": "tsx src/smoke.ts",
-    "asr:file": "tsx src/audio/asr-file.ts"
+    "asr:file": "tsx src/audio/asr-file.ts",
+    "mic:file": "tsx src/audio/mic-file.ts"
   },
   "dependencies": {
     "@teammate/agents": "*",
