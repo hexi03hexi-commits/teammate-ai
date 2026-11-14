@@ -1,4 +1,4 @@
-import { hasCjk, type ClientMessage, type ServerEvent, type TeammateId } from "@teammate/shared";
+import type { ClientMessage, ServerEvent, TeammateId } from "@teammate/shared";
 
 export type SpeakEvent = Extract<ServerEvent, { type: "speak" }>;
 type Send = (msg: ClientMessage) => void;
@@ -135,8 +135,8 @@ class SpeechQueue {
     const synth = window.speechSynthesis;
     const style = VOICE_STYLE[e.teammate];
     const u = new SpeechSynthesisUtterance(e.text);
-    // Read Chinese lines with a Chinese voice: an English voice turns them into noise
-    const zh = hasCjk(e.text);
+    // The line is spoken in whatever language the teammate wrote it in.
+    const zh = isChinese(e.text);
     u.lang = zh ? "zh-CN" : "en-US";
     u.pitch = style.pitch;
     u.rate = style.rate;
@@ -146,7 +146,7 @@ class SpeechQueue {
     u.onend = finish;
     u.onerror = finish;
     // Some browsers never fire onend; estimate the duration generously.
-    arm(2500 + e.text.length * 110);
+    arm(2500 + e.text.length * (zh ? 320 : 110));
     synth.cancel();
     synth.speak(u);
     // Safari sometimes skips onstart.
@@ -163,11 +163,21 @@ class SpeechQueue {
   }
 }
 
-function pickVoice(id: TeammateId, lang: string): SpeechSynthesisVoice | null {
+/** Mostly Chinese characters: needs a Chinese voice, and takes longer per character to say. */
+function isChinese(text: string): boolean {
+  const han = text.match(/[一-鿿]/g)?.length ?? 0;
+  return han > text.length * 0.3;
+}
+
+function pickVoice(id: TeammateId, lang: "en" | "zh"): SpeechSynthesisVoice | null {
   if (!("speechSynthesis" in window)) return null;
-  const voices = window.speechSynthesis.getVoices().filter((v) => v.lang.toLowerCase().startsWith(lang));
+  const all = window.speechSynthesis.getVoices().filter((v) => v.lang.toLowerCase().startsWith(lang));
+  // Mainland Mandarin first; a device may also carry Cantonese and Taiwanese voices under "zh".
+  const mainland = all.filter((v) => /zh[-_](cn|hans)/i.test(v.lang));
+  const voices = lang === "zh" && mainland.length ? mainland : all;
   if (voices.length === 0) return null;
-  const preferred = voices.find((v) => VOICE_STYLE[id].prefer.test(v.name));
+  // Devices rarely have four Chinese voices: teammates then share voices and differ by pitch and rate.
+  const preferred = lang === "en" ? voices.find((v) => VOICE_STYLE[id].prefer.test(v.name)) : undefined;
   return preferred ?? voices[ORDER.indexOf(id) % voices.length] ?? null;
 }
 

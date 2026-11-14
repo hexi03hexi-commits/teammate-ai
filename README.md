@@ -37,9 +37,17 @@ npm run dev
 |---|---|---|---|
 | `scripted` | `fixtures/brainstorm.json` | 同一文件里写死的 | 无 |
 | `replay` | `fixtures/brainstorm.json` | 真实 agent | `ANTHROPIC_API_KEY` |
-| `live` | 麦克风（待接入） | 真实 agent | 加上 `DEEPGRAM_API_KEY` |
+| `live` | 主设备的麦克风 | 真实 agent | 加上 `DEEPGRAM_API_KEY` |
 
 `REPLAY_SPEED=5` 可以快进回放，停顿和冷却时间会按同样倍数缩短。
+
+### live 模式
+
+在 `.env` 里设 `MODE=live`，并用 `ASR_LANGUAGE` 指定会议语言（默认 `en`，中文用 `zh-CN`）。Deepgram 没有中英混说模式，中文会议里的英文术语可能识别不准。
+
+- **谁是谁**：语音识别只能分出"第几个开口的人"。开场请大家按名单顺序各说一句，之后的发言就会对应到名字。
+- **麦克风权限**：浏览器只在 https 或 `localhost` 下允许用麦克风。iPad 通过局域网访问时，用 `npm run dev:https -w frontend` 启动页面（自签证书，首次打开要点一次"继续访问"），然后打开 `https://<电脑的局域网 IP>:5173`。页面右上角出现麦克风图标表示正在收音，红色表示被拦了。
+- **不用浏览器测试识别**：`npm run asr:file -w server -- recordings/某段录音.wav --speakers 小王,小李`，把一段录音按实时速度送进同一条链路，只打印识别结果，不调用 agent。加 `--speed 3` 可以快进。
 
 ## 结构
 
