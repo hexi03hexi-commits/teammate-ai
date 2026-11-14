@@ -108,12 +108,13 @@ export function HomePage({
           onAddTeam={onAddTeam}
           onHover={setHoverTeam}
         />
-        <div className="px-4 pb-4">
-          <ThemeToggle />
-        </div>
       </aside>
 
       <main ref={stage} className="relative flex min-w-0 flex-1 flex-col items-center justify-center overflow-hidden">
+        {/* Light or dark is chosen here, on the home screen, and applies everywhere */}
+        <div className="absolute top-1 right-1 z-10">
+          <ThemeToggle />
+        </div>
         {/* The only colour on the page: a soft halo borrowed from Atlas */}
         <div
           aria-hidden

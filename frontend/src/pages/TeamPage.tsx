@@ -4,7 +4,7 @@ import { TEAMMATE_IDS, type TeammateId } from "@teammate/shared";
 import type { StartOptions } from "../App";
 import { AgentFigure } from "../agents/AgentFigure";
 import type { Team } from "../store/teams";
-import { Icon, IconButton, ThemeToggle } from "../ui/kit";
+import { Icon, IconButton } from "../ui/kit";
 import { Composer } from "./team/Composer";
 import { History } from "./team/History";
 import { Minutes } from "./team/Minutes";
@@ -86,7 +86,6 @@ export function TeamPage({
           </span>
         </button>
         <span className="flex-1" />
-        <ThemeToggle />
         <AnimatePresence initial={false}>
           {!composing && !editing && meetings.length > 0 && (
             <motion.button
