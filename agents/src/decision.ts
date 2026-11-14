@@ -5,6 +5,8 @@ import { anthropic, describeSession, renderTranscript, ROLE_MODEL, type MeetingC
 
 const DECISION_PROMPT = `You write the one-page outcome of a hackathon brainstorm that has just ended, for the four people who were in it. They will act on it immediately, so record only what was actually said and agreed; where something was left open, list it as a risk rather than inventing a resolution.
 
+Write the whole record in the language the meeting was held in. For a meeting in Chinese, write natural Chinese; keep people's names, product names and the group's technical terms as they were said.
+
 - summary: two or three sentences a teammate who missed the meeting could read to know what happened: what was discussed, what changed along the way, and where it ended.
 - topics: the subjects the group actually discussed, in the order they came up. Give each a short title and one to four points; each point is one plain sentence stating what was said or settled, naming the person where it matters.
 - conclusion: what the team decided to build, in one or two sentences. If nothing was decided, say so.

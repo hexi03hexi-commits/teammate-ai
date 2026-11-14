@@ -1,7 +1,8 @@
 import {
   emptySnapshot,
+  findCalledTeammate,
+  isHushCommand,
   TEAMMATE_IDS,
-  TEAMMATES,
   type Card,
   type CardSource,
   type ClientMessage,
@@ -263,30 +264,22 @@ export class Session {
 
   /** “先别说”一类的口头叫停。返回 true 表示这句话已处理，不再交给 agent。 */
   private handleVoiceCommand(u: Utterance): boolean {
-    if (/\b(not now|hold on|be quiet|quiet please)\b/i.test(u.text) && /\b(pilot|scout|sage|rebel|teammates?|guys)\b/i.test(u.text)) {
+    if (isHushCommand(u.text)) {
       this.mute("all", 60);
       return true;
     }
     return false;
   }
 
-  /** 被点名：“Hey Scout, …”。点名优先于主动介入，跳过主 agent 和冷却。 */
-  private calledTeammate(u: Utterance): TeammateId | null {
-    for (const id of TEAMMATE_IDS) {
-      const name = TEAMMATES[id].name;
-      if (new RegExp(`\\b(hey|hi|ok|okay)[,\\s]+${name}\\b|^${name}\\b[,\\s]`, "i").test(u.text)) return id;
-    }
-    return null;
-  }
-
   private async think(u: Utterance) {
     if (!this.brain) return;
 
-    const called = this.calledTeammate(u);
+    // 被点名：“Hey Scout, …”“Scout，帮我查一下”。点名优先于主动介入，跳过主 agent 和冷却。
+    const called = findCalledTeammate(u.text);
     if (called) {
       if (this.snapshot.teammates[called].override === "off") return;
       log(`  → ${called} was called by name`);
-      await this.produce(called, 3, `${u.speakerName} asked you directly: "${u.text}". Answer the question.`, true);
+      void this.produce(called, 3, `${u.speakerName} asked you directly: "${u.text}". Answer the question.`, true);
       return;
     }
 
@@ -331,7 +324,8 @@ export class Session {
         log(`  · ${d.teammate} is cooling down, skipped — ${d.reason}`);
       } else {
         log(`  → ${d.teammate} L${d.level} — ${d.reason}`);
-        await this.produce(d.teammate, d.level, d.brief, false);
+        // 不等它写完：角色 agent 可能要十几秒（Scout 要搜索），这期间主 agent 得继续听
+        void this.produce(d.teammate, d.level, d.brief, false);
       }
     } catch (err) {
       log("orchestrator failed:", err);
@@ -346,13 +340,17 @@ export class Session {
     if (!this.brain) return;
     this.lastInterventionAt[teammate] = Date.now(); // 先占住冷却，避免同一个队友被重复派出
     if (!direct) this.lastAnyInterventionAt = Date.now();
-    if (this.snapshot.teammates[teammate].status === "hidden") this.setStatus(teammate, "idle");
+    // 让大家看到它被叫到了、正在准备，而不是十几秒后卡片凭空出现
+    if (this.snapshot.teammates[teammate].status !== "speaking") this.setStatus(teammate, "preparing");
     try {
       const out = await this.brain.runRole(teammate, this.context(), brief, level);
       if (this.snapshot.phase !== "live") return;
       this.intervene({ teammate, level, ...out }, direct);
     } catch (err) {
       log(`${teammate} failed:`, err);
+    } finally {
+      // 没能发出来（出错、被静音、会议已结束）：别停在“准备中”
+      if (this.snapshot.teammates[teammate].status === "preparing") this.setStatus(teammate, this.restingStatus(teammate));
     }
   }
 

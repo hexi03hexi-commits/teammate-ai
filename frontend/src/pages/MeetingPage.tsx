@@ -120,7 +120,9 @@ export function MeetingPage({ session, team }: { session: Session; team: Team })
   // ───── Main agent ─────
   const mainMood: Mood = paused ? "asleep" : wrappingUp ? "thinking" : talkingId ? "listening" : "idle";
   // Look towards whoever is talking (members sit along the bottom left) or down at the stage
-  const mainLook = talkingIndex >= 0 ? -0.9 + (talkingIndex / Math.max(1, members.length - 1)) * 0.8 : 0;
+  // …or, when it has just called a teammate who is still getting ready, towards the dock on the right
+  const someonePreparing = TEAMMATE_IDS.some((id) => snapshot.teammates[id].status === "preparing");
+  const mainLook = talkingIndex >= 0 ? -0.9 + (talkingIndex / Math.max(1, members.length - 1)) * 0.8 : someonePreparing ? 0.9 : 0;
   const chips = useKeywordChips(heard, live && !paused && !staged);
 
   // ───── Layout ─────
@@ -138,7 +140,8 @@ export function MeetingPage({ session, team }: { session: Session; team: Team })
   // ───── Clock ─────
   const frozenAt = useRef(0);
   if (!paused && live) frozenAt.current = now;
-  const elapsed = snapshot.startedAt ? Math.max(0, (live ? frozenAt.current || now : now) - snapshot.startedAt) : 0;
+  // The clock stops when the meeting is paused and when it ends (while the minutes are being written)
+  const elapsed = snapshot.startedAt ? Math.max(0, (frozenAt.current || now) - snapshot.startedAt) : 0;
   const total = (snapshot.config?.durationMin ?? 0) * 60_000;
   const over = total > 0 && elapsed > total;
 
@@ -291,7 +294,8 @@ export function MeetingPage({ session, team }: { session: Session; team: Team })
               const t = snapshot.teammates[id];
               const away = onStage.has(id);
               const hasCard = latest.has(id);
-              const mood: Mood = paused || t.status === "hidden" || t.status === "muted" ? "asleep" : t.status === "has_something" ? "nudging" : "idle";
+              const preparing = !paused && t.status === "preparing";
+              const mood: Mood = paused || t.status === "hidden" || t.status === "muted" ? "asleep" : preparing ? "thinking" : t.status === "has_something" ? "nudging" : "idle";
               return (
                 <div key={id} className="relative grid h-[62px] w-[62px] place-items-center">
                   {/* the empty seat it leaves behind */}
@@ -305,6 +309,7 @@ export function MeetingPage({ session, team }: { session: Session; team: Team })
                       title={AGENTS[id].name}
                       disabled={!hasCard}
                       onClick={() => toggleFromDock(id)}
+                      animate={{ y: preparing ? -10 : 0, scale: preparing ? 1.18 : 1 }}
                       whileTap={hasCard ? { scale: 0.9 } : undefined}
                       className="disabled:cursor-default"
                     >

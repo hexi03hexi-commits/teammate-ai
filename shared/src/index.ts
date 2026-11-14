@@ -27,11 +27,12 @@ export const TEAMMATES: Record<TeammateId, TeammateMeta> = {
 /**
  * hidden    还没出场（没被识别为需要）
  * idle      已出场，待命（L0）
+ * preparing 被叫到了，正在准备要说的内容（查资料、组织语言），还没有卡片
  * has_something  图标亮起，有话说（L1）
  * speaking  正在发声（L3）
  * muted     被静音
  */
-export type TeammateStatus = "hidden" | "idle" | "has_something" | "speaking" | "muted";
+export type TeammateStatus = "hidden" | "idle" | "preparing" | "has_something" | "speaking" | "muted";
 
 /** auto = 由主 agent 决定是否出场；on / off = 人手动打开或关闭 */
 export type TeammateOverride = "auto" | "on" | "off";
@@ -39,6 +40,49 @@ export type TeammateOverride = "auto" | "on" | "off";
 export interface TeammateState {
   status: TeammateStatus;
   override: TeammateOverride;
+}
+
+// ───────────────────────── 点名与口头叫停 ─────────────────────────
+
+/**
+ * 语音识别可能把队友的名字写成什么。英文名之外是中文识别下常见的音译，
+ * 属于猜测：接上真实语音后，按识别结果里实际出现的写法增删。
+ */
+export const TEAMMATE_ALIASES: Record<TeammateId, string[]> = {
+  pilot: ["pilot", "派洛特", "派勒特", "拍洛特", "派乐特"],
+  scout: ["scout", "scott", "斯考特", "史考特", "斯高特", "司考特"],
+  sage: ["sage", "赛吉", "塞吉", "赛奇", "塞奇"],
+  rebel: ["rebel", "瑞贝尔", "雷贝尔", "瑞博", "瑞波"],
+};
+
+const GREETING = "(?:hey|hi|ok|okay|嘿|嗨|喂|诶|哎)";
+
+/**
+ * 这句话是不是在点名某个队友：“Hey Scout, …”“Scout，帮我查一下”“嘿 Scout”。
+ * 只认开头的称呼或带招呼语的称呼，句子中间顺带提到名字不算。
+ */
+export function findCalledTeammate(text: string): TeammateId | null {
+  const t = text.trim();
+  for (const id of TEAMMATE_IDS) {
+    const names = TEAMMATE_ALIASES[id].join("|");
+    // 称呼后面必须是停顿、标点或中文，避免 "Scouting report" 这类误中
+    const after = String.raw`(?=$|[\s,，、。！？!?:：]|[一-鿿])`;
+    const gap = String.raw`[\s,，]*`;
+    const called = new RegExp(`^(?:${GREETING}${gap})?(?:${names})${after}|${GREETING}${gap}(?:${names})${after}`, "i");
+    if (called.test(t)) return id;
+  }
+  return null;
+}
+
+/** 口头叫停：“not now, guys”“先别说”。返回 true 时让所有队友安静一会儿。 */
+export function isHushCommand(text: string): boolean {
+  if (/(先别说|先不要说|别说话|安静一下|先安静)/.test(text)) return true;
+  return /\b(not now|hold on|be quiet|quiet please)\b/i.test(text) && /\b(pilot|scout|sage|rebel|teammates?|guys)\b/i.test(text);
+}
+
+/** 文本里有没有中日韩文字。用来选朗读的语言、切关键词的方式。 */
+export function hasCjk(text: string): boolean {
+  return /[㐀-鿿]/.test(text);
 }
 
 // ───────────────────────── 会话 ─────────────────────────

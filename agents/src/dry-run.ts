@@ -3,6 +3,7 @@
  *
  *   npm run agents:dry                         # 用 fixtures/brainstorm.json
  *   npm run agents:dry -- path/to/other.json   # 换一段对话
+ *   npm run agents:dry -- fixtures/brainstorm-zh.json   # 中文版
  *   npm run agents:dry -- --no-roles           # 只看主 agent 的决定，不生成卡片（更快更省）
  *
  * 改完提示词后重跑同一段对话，对比介入的时机和内容是变好还是变差。
@@ -10,7 +11,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { DEMO_CONFIG, emptySnapshot, TEAMMATE_IDS, type Card, type Utterance } from "@teammate/shared";
+import { DEMO_CONFIG, emptySnapshot, findCalledTeammate, TEAMMATE_IDS, type Card, type SessionConfig, type Utterance } from "@teammate/shared";
 import { fmtClock, type MeetingContext } from "./context.ts";
 import { decide, newMemory } from "./orchestrator.ts";
 import { runRole } from "./roles.ts";
@@ -25,7 +26,8 @@ try {
 
 const args = process.argv.slice(2);
 const withRoles = !args.includes("--no-roles");
-const file = args.find((a) => !a.startsWith("--")) ?? path.join(root, "fixtures/brainstorm.json");
+// 路径相对于仓库根目录（npm 会把工作目录切到 agents/，所以不能依赖当前目录）
+const file = path.resolve(root, args.find((a) => !a.startsWith("--")) ?? "fixtures/brainstorm.json");
 
 interface FixtureItem {
   t: number;
@@ -33,12 +35,13 @@ interface FixtureItem {
   speaker?: string;
   text?: string;
 }
-const items = (JSON.parse(fs.readFileSync(file, "utf8")) as { items: FixtureItem[] }).items.filter(
+const fixture = JSON.parse(fs.readFileSync(file, "utf8")) as { items: FixtureItem[]; config?: Partial<SessionConfig> };
+const items = fixture.items.filter(
   (i) => i.type === "utterance",
 );
 
 const ctx: MeetingContext = {
-  config: DEMO_CONFIG,
+  config: { ...DEMO_CONFIG, ...fixture.config },
   elapsedMs: 0,
   transcript: [],
   teammates: emptySnapshot().teammates,
@@ -61,7 +64,7 @@ for (const [i, item] of items.entries()) {
   console.log(`\n[${fmtClock(u.t)}] ${u.speakerName}: ${u.text}`);
 
   // 和服务端一致：被点名时跳过主 agent，直接让那个队友回答
-  const called = TEAMMATE_IDS.find((id) => new RegExp(`\\b(hey|hi|ok|okay)[,\\s]+${id}\\b`, "i").test(u.text));
+  const called = findCalledTeammate(u.text);
   if (called) {
     console.log(`    ▶ ${called.toUpperCase()} called by name`);
     if (withRoles) {

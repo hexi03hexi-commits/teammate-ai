@@ -14,7 +14,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { DEMO_CONFIG, emptySnapshot, TEAMMATE_IDS, type SessionConfig, type TeammateId, type Utterance } from "@teammate/shared";
+import { DEMO_CONFIG, emptySnapshot, findCalledTeammate, TEAMMATE_IDS, type SessionConfig, type TeammateId, type Utterance } from "@teammate/shared";
 import type { MeetingContext } from "./context.ts";
 import { decide, newMemory } from "./orchestrator.ts";
 import type { Persona } from "./personas.ts";
@@ -116,7 +116,7 @@ async function runOnce(c: Case): Promise<RunResult> {
     ctx.elapsedMs = u.t;
 
     // 点名由服务端直接处理，不经过主 agent，也不计入测试
-    const called = TEAMMATE_IDS.find((id) => new RegExp(`\\b(hey|hi|ok|okay)[,\\s]+${id}\\b`, "i").test(u.text));
+    const called = findCalledTeammate(u.text);
     if (called) {
       ctx.cards.push({ id: `c${ctx.cards.length}`, teammate: called, level: 3, title: `Answered ${u.speakerName}'s direct question`, body: "", status: "active", t: u.t });
       ctx.teammates[called].status = "idle";

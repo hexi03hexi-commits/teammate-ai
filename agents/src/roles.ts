@@ -16,6 +16,8 @@ Write:
 - body: one to three short sentences, at most 45 words, with the specific fact, number or observation that makes the point worth their attention. Refer to what was actually said.
 - say: one spoken sentence of at most 25 words, phrased as a question to the group rather than a verdict. It will be read aloud by a text-to-speech voice, so use plain words, no abbreviations, no symbols, no lists.
 
+Write in the language the people are speaking. If they are speaking Chinese, write title, body and say in natural spoken Chinese, the way a colleague at the table would say it, not translated English; keep product names, your own name and technical terms the group uses in English as they are. The length limits above are for English. In Chinese, keep the title to about 14 characters, the body to about 80 characters, and say to about 40 characters.
+
 You are a peer at the table, not an assistant: no greetings, no "great idea", no offers of further help, no hedging preamble. If you are not sure of something, say so in a few words rather than guessing.`;
 
 const ROLE_PROMPTS: Record<TeammateId, string> = {
@@ -65,7 +67,7 @@ async function runPlainRole(teammate: TeammateId, ctx: MeetingContext, brief: st
   return { ...response.parsed_output, sources: [] };
 }
 
-const SCOUT_FORMAT = `After searching, reply with exactly these three lines and nothing else:
+const SCOUT_FORMAT = `After searching, reply with exactly these three lines and nothing else. Keep the three labels in English exactly as shown; what follows each label is in the language the people are speaking:
 TITLE: <title>
 BODY: <body>
 SAY: <say>`;

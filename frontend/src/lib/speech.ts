@@ -1,4 +1,4 @@
-import type { ClientMessage, ServerEvent, TeammateId } from "@teammate/shared";
+import { hasCjk, type ClientMessage, type ServerEvent, type TeammateId } from "@teammate/shared";
 
 export type SpeakEvent = Extract<ServerEvent, { type: "speak" }>;
 type Send = (msg: ClientMessage) => void;
@@ -135,10 +135,12 @@ class SpeechQueue {
     const synth = window.speechSynthesis;
     const style = VOICE_STYLE[e.teammate];
     const u = new SpeechSynthesisUtterance(e.text);
-    u.lang = "en-US";
+    // Read Chinese lines with a Chinese voice: an English voice turns them into noise
+    const zh = hasCjk(e.text);
+    u.lang = zh ? "zh-CN" : "en-US";
     u.pitch = style.pitch;
     u.rate = style.rate;
-    const voice = pickVoice(e.teammate);
+    const voice = pickVoice(e.teammate, zh ? "zh" : "en");
     if (voice) u.voice = voice;
     u.onstart = start;
     u.onend = finish;
@@ -161,9 +163,9 @@ class SpeechQueue {
   }
 }
 
-function pickVoice(id: TeammateId): SpeechSynthesisVoice | null {
+function pickVoice(id: TeammateId, lang: string): SpeechSynthesisVoice | null {
   if (!("speechSynthesis" in window)) return null;
-  const voices = window.speechSynthesis.getVoices().filter((v) => v.lang.toLowerCase().startsWith("en"));
+  const voices = window.speechSynthesis.getVoices().filter((v) => v.lang.toLowerCase().startsWith(lang));
   if (voices.length === 0) return null;
   const preferred = voices.find((v) => VOICE_STYLE[id].prefer.test(v.name));
   return preferred ?? voices[ORDER.indexOf(id) % voices.length] ?? null;

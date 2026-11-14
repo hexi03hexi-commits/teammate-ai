@@ -33,7 +33,7 @@ interface Props {
 export function Station({ card, status, compact, dimmed, canAct, onAdopt, onDismiss }: Props) {
   const a = AGENTS[card.teammate];
   const speaking = status === "speaking";
-  const mood: Mood = speaking ? "speaking" : status === "has_something" ? "nudging" : "idle";
+  const mood: Mood = speaking ? "speaking" : status === "preparing" ? "thinking" : status === "has_something" ? "nudging" : "idle";
   const figure = compact ? 76 : 128;
   // The bubble carries the spoken line when there is one; otherwise the headline.
   const line = card.say ?? card.title;
