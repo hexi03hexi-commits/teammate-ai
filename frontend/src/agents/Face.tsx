@@ -73,7 +73,7 @@ export function Extras({ mood, color }: { mood: Mood; color: string }) {
             y={26 - i * 7}
             fontSize={9 + i * 3}
             fontWeight={800}
-            fill="var(--ink-3)"
+            fill={color}
             style={{ animationDelay: `${delay}s` }}
           >
             z

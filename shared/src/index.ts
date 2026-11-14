@@ -109,8 +109,18 @@ export interface Assignment {
   task: string;
 }
 
+/** 讨论过的一个议题和它的要点，用于会后纪要 */
+export interface Topic {
+  title: string;
+  points: string[];
+}
+
 export interface DecisionCard {
   conclusion: string;
+  /** 两三句话的会议概述 */
+  summary?: string;
+  /** 按讨论顺序排列的议题 */
+  topics?: Topic[];
   assignments: Assignment[];
   risks: string[];
   adoptedCardIds: string[];

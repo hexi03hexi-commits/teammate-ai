@@ -2,7 +2,7 @@ import { useSyncExternalStore, type ButtonHTMLAttributes, type ReactNode } from 
 
 /** Shared small pieces. Keep this file tiny: anything page-specific lives with its page. */
 
-type IconName = "plus" | "back" | "pause" | "play" | "stop" | "check" | "close" | "sun" | "moon" | "arrow" | "link";
+type IconName = "plus" | "back" | "pause" | "play" | "stop" | "check" | "close" | "sun" | "moon" | "arrow" | "link" | "export" | "copy" | "mic" | "micOff" | "redo" | "sliders";
 
 const PATHS: Record<IconName, ReactNode> = {
   plus: <path d="M12 5v14M5 12h14" />,
@@ -20,6 +20,27 @@ const PATHS: Record<IconName, ReactNode> = {
   ),
   moon: <path d="M19.5 14.2A8 8 0 0 1 9.8 4.5a8 8 0 1 0 9.7 9.7Z" />,
   arrow: <path d="M5 12h14M13 6l6 6-6 6" />,
+  mic: (
+    <>
+      <rect x="9" y="3.5" width="6" height="11" rx="3" />
+      <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v2.5" />
+    </>
+  ),
+  micOff: (
+    <>
+      <path d="M15 9.5v-3a3 3 0 0 0-5.6-1.5M9 9v2.5a3 3 0 0 0 4.6 2.5" />
+      <path d="M5.5 11.5a6.5 6.5 0 0 0 10.4 5.2M18.5 11.5a6.5 6.5 0 0 1-.5 2.5M12 18v2.5M4 4l16 16" />
+    </>
+  ),
+  sliders: <path d="M5 7.5h6M15 7.5h4M5 16.5h3M12 16.5h7M13 5v5M10 14v5" />,
+  redo: <path d="M19 8.5V4.5M19 8.5h-4M19 8.5a7.5 7.5 0 1 0 .5 6" />,
+  export: <path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14" />,
+  copy: (
+    <>
+      <rect x="8.5" y="8.5" width="11" height="11" rx="2.6" />
+      <path d="M15.5 5.5h-8a2 2 0 0 0-2 2v8" />
+    </>
+  ),
   link: <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />,
 };
 

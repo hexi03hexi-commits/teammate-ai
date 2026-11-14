@@ -5,11 +5,15 @@ import { anthropic, describeSession, renderTranscript, ROLE_MODEL, type MeetingC
 
 const DECISION_PROMPT = `You write the one-page outcome of a hackathon brainstorm that has just ended, for the four people who were in it. They will act on it immediately, so record only what was actually said and agreed; where something was left open, list it as a risk rather than inventing a resolution.
 
+- summary: two or three sentences a teammate who missed the meeting could read to know what happened: what was discussed, what changed along the way, and where it ended.
+- topics: the subjects the group actually discussed, in the order they came up. Give each a short title and one to four points; each point is one plain sentence stating what was said or settled, naming the person where it matters.
 - conclusion: what the team decided to build, in one or two sentences. If nothing was decided, say so.
 - assignments: who took which piece of work, using the people's names. Include only assignments someone stated or accepted in the conversation.
 - risks: open risks and unanswered questions, each one short sentence, most serious first. Include points the AI teammates raised that the group did not resolve.`;
 
 const Schema = z.object({
+  summary: z.string(),
+  topics: z.array(z.object({ title: z.string(), points: z.array(z.string()) })),
   conclusion: z.string(),
   assignments: z.array(z.object({ owner: z.string(), task: z.string() })),
   risks: z.array(z.string()),

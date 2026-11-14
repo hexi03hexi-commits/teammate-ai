@@ -5,7 +5,7 @@ import { IS_HOST, LAB } from "./lib/env";
 import { speech } from "./lib/speech";
 import { useSession } from "./hooks/useSession";
 import { useWakeLock } from "./hooks/useWakeLock";
-import { addMeeting, addTeam, cardsToEntries, useTeams } from "./store/teams";
+import { addMeeting, addTeam, cardsToEntries, updateTeam, useTeams } from "./store/teams";
 import { Lab } from "./pages/Lab";
 import { HomePage } from "./pages/HomePage";
 import { TeamPage } from "./pages/TeamPage";
@@ -13,6 +13,7 @@ import { MeetingPage } from "./pages/MeetingPage";
 
 type View = { name: "home" } | { name: "team"; teamId: string; meetingId?: string } | { name: "meeting"; teamId: string };
 
+/** What is chosen per meeting. The target, judging criteria and track belong to the team (see store/teams.ts). */
 export interface StartOptions {
   title: string;
   durationMin: number;
@@ -69,6 +70,7 @@ export function App() {
       if (!team) return;
       speech.unlock(); // we are inside a tap: lets iOS play the agents' voices later
       localStorage.setItem(ACTIVE_TEAM_KEY, teamId);
+      updateTeam(teamId, { durationMin: opts.durationMin }); // offered again next time
       for (const id of TEAMMATE_IDS) {
         send({ type: "set_teammate", teammate: id, override: opts.agentIds.includes(id) ? "auto" : "off" });
       }

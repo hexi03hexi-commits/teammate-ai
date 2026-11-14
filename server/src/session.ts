@@ -159,6 +159,13 @@ export class Session {
         ? await this.brain.writeDecision(this.context())
         : // scripted 模式没有 agent：给一张固定的决策卡，够前端调样式用
           {
+            summary:
+              "The team started from an AI flashcard idea, found the space already crowded, and moved to a companion that works live during the lecture. After a short detour the group committed to it, softened an unsupported retention claim, and agreed a pre-recorded fallback for the demo.",
+            topics: [
+              { title: "Flashcards from lecture recordings", points: ["Ben proposed turning lecture recordings into flashcards automatically.", "Dr. Lin asked whether it already exists; Quizlet, Anki add-ons and NotebookLM cover it.", "None of the existing tools work live during the lecture."] },
+              { title: "Live lecture companion", points: ["Henry reframed the idea as a companion that works during the lecture.", "The claim that students learn 80% better was dropped in favour of wording the evidence supports.", "Everyone agreed to go with this idea."] },
+              { title: "Demo risk and fallback", points: ["Live transcription in a noisy hall is the hardest part and is the whole demo.", "Dr. Lin proposed a pre-recorded lecture clip as fallback; MIT OpenCourseWare lectures can be used."] },
+            ],
             conclusion: "Build a live lecture companion that turns what is being said into study cards during the lecture.",
             assignments: [
               { owner: "Ben", task: "Transcription pipeline" },

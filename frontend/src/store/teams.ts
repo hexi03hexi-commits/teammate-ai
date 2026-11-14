@@ -11,6 +11,11 @@ export interface Member {
   id: string;
   name: string;
   skill?: string;
+  /**
+   * Set once this person has recorded their self-introduction.
+   * `bars` is the loudness outline of that recording, kept only to draw it; the audio itself is not stored.
+   */
+  voice?: { enrolledAt: number; bars: number[] };
 }
 
 /** One thing an agent contributed during a meeting. The minutes are a list of these. */
@@ -46,10 +51,12 @@ export interface Team {
   scope: string;
   criteria: string;
   industry: string;
+  /** Length of the last meeting, offered again next time. Unset until the team has chosen one. */
+  durationMin?: number;
   meetings: Meeting[];
 }
 
-const KEY = "teammate.teams.v2";
+const KEY = "teammate.teams.v4";
 const DAY = 86_400_000;
 
 function seed(): Team[] {
@@ -76,6 +83,13 @@ function seed(): Team[] {
             { id: "e3", t: 560_000, agent: "pilot", title: "Ten minutes in, two options left", body: "Education and productivity are still open. Impact is 20% of the score and favours education.", status: "adopted" },
           ],
           decision: {
+            summary:
+              "The team compared the education and productivity tracks. Entry numbers and the impact criterion both pointed to education, and the group committed to it while noting that nobody has a teaching background.",
+            topics: [
+              { title: "Track options", points: ["Education and productivity were the two candidates; health was ruled out early for lack of data.", "Ben preferred productivity because the team already uses those tools daily."] },
+              { title: "Competition per track", points: ["Last year 9 of 62 teams entered education against 24 in productivity.", "A smaller track may come with more specialised judges."] },
+              { title: "Fit with judging criteria", points: ["Impact is 20% of the score and is easier to argue in education.", "Henry will check the track brief before any idea is fixed."] },
+            ],
             conclusion: "Enter the education track.",
             assignments: [
               { owner: "Henry", task: "Read the track brief and list the judging criteria" },
@@ -96,6 +110,11 @@ function seed(): Team[] {
             { id: "e1", t: 250_000, agent: "pilot", title: "No owner for the demo video yet", body: "Design, code and server are covered. The two-minute video is 20% of the score and has no owner.", status: "adopted" },
           ],
           decision: {
+            summary: "A short session to split responsibilities. Design, code and server each have an owner; the demo video was unowned until Pilot pointed it out, and Ava took it.",
+            topics: [
+              { title: "Who does what", points: ["Ava takes design, Ben takes code, Dr. Lin joins later for the server.", "Henry coordinates and writes the script."] },
+              { title: "Working hours", points: ["Everyone is reachable from 10:00 to 22:00.", "A short sync at 14:00 and 20:00 each day."] },
+            ],
             conclusion: "Ava owns the video; everyone is online 10:00 to 22:00.",
             assignments: [{ owner: "Ava", task: "Storyboard the two-minute video" }],
             risks: [],
@@ -128,6 +147,11 @@ function seed(): Team[] {
             { id: "e2", t: 800_000, agent: "rebel", title: "All three routes look alike", body: "Each direction uses the same geometric sans and a single accent. What would a truly different route be?", status: "dismissed" },
           ],
           decision: {
+            summary: "Three brand routes were reviewed. One failed accessibility contrast and was dropped; the remaining two will be developed, with a new serif route added to widen the range.",
+            topics: [
+              { title: "Review of the three routes", points: ["All three use a geometric sans and a single accent colour.", "The monochrome route fails WCAG AA contrast for body text."] },
+              { title: "Motion scope", points: ["Jon wants a motion system for the wordmark.", "The client has not confirmed a budget for it."] },
+            ],
             conclusion: "Develop two routes; drop the monochrome one.",
             assignments: [{ owner: "Mika", task: "Second route with a serif wordmark" }],
             risks: ["Client has not confirmed the budget for motion."],
@@ -191,9 +215,10 @@ export function addTeam(name: string): Team {
     id: uid("t"),
     name: name.trim() || "New team",
     members: DEMO_CONFIG.speakers.map((s) => ({ ...s })),
-    scope: DEMO_CONFIG.scope,
-    criteria: DEMO_CONFIG.criteria,
-    industry: DEMO_CONFIG.industry,
+    // Nothing about the work is assumed: the team fills in its brief (TeamSettings).
+    scope: "",
+    criteria: "",
+    industry: "",
     meetings: [],
   };
   commit([team, ...teams]);
@@ -204,6 +229,14 @@ export function addMeeting(teamId: string, meeting: Omit<Meeting, "id">): Meetin
   const full: Meeting = { ...meeting, id: uid("m") };
   commit(teams.map((t) => (t.id === teamId ? { ...t, meetings: [full, ...t.meetings] } : t)));
   return full;
+}
+
+export function updateTeam(teamId: string, patch: Partial<Omit<Team, "id" | "meetings" | "members">>) {
+  commit(teams.map((t) => (t.id === teamId ? { ...t, ...patch } : t)));
+}
+
+export function updateMember(teamId: string, memberId: string, patch: Partial<Omit<Member, "id">>) {
+  commit(teams.map((t) => (t.id === teamId ? { ...t, members: t.members.map((m) => (m.id === memberId ? { ...m, ...patch } : m)) } : t)));
 }
 
 /** Turn the cards of a finished session into minutes. */

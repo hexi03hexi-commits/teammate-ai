@@ -9,6 +9,7 @@ import { Composer } from "./team/Composer";
 import { History } from "./team/History";
 import { Minutes } from "./team/Minutes";
 import { Roster } from "./team/Roster";
+import { TeamSettings } from "./team/TeamSettings";
 import { sortedMeetings } from "./team/util";
 
 const ease = [0.2, 0.8, 0.2, 1] as const;
@@ -32,6 +33,8 @@ export function TeamPage({
     () => meetings.find((m) => m.id === initialMeetingId)?.id ?? meetings[0]?.id ?? null,
   );
   const [composing, setComposing] = useState(false);
+  // Team settings (brief + voices). A team that has neither a brief nor a meeting opens here first.
+  const [editing, setEditing] = useState(() => meetings.length === 0 && !team.scope && !team.criteria && !team.industry);
   const [pickedMembers, setPickedMembers] = useState<string[]>([]);
   const [pickedAgents, setPickedAgents] = useState<TeammateId[]>([]);
   const [focusAgent, setFocusAgent] = useState<TeammateId | null>(null);
@@ -42,6 +45,7 @@ export function TeamPage({
     setPickedMembers(team.members.map((m) => m.id));
     setPickedAgents([...TEAMMATE_IDS]);
     setFocusAgent(null);
+    setEditing(false);
     setComposing(true);
   };
   const toggle = <T,>(list: T[], id: T) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
@@ -62,8 +66,18 @@ export function TeamPage({
         <IconButton icon="back" label="Back" tone="glass" onClick={onBack} />
         <h1 className="min-w-0 flex-1 truncate pl-1 text-[30px] font-semibold tracking-[-0.025em] text-ink">{team.name}</h1>
         <ThemeToggle />
+        <IconButton
+          icon="sliders"
+          label="Team settings"
+          size={40}
+          tone={editing ? "solid" : "plain"}
+          onClick={() => {
+            setComposing(false);
+            setEditing((v) => !v);
+          }}
+        />
         <AnimatePresence initial={false}>
-          {!composing && meetings.length > 0 && (
+          {!composing && !editing && meetings.length > 0 && (
             <motion.button
               key="new"
               type="button"
@@ -102,11 +116,13 @@ export function TeamPage({
                 <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto p-2 lg:p-3">
                   <History
                     meetings={meetings}
+                    members={team.members}
                     selectedId={selectedId}
-                    muted={composing}
+                    muted={composing || editing}
                     onSelect={(id) => {
                       setSelectedId(id);
                       setComposing(false);
+                      setEditing(false);
                     }}
                   />
                 </div>
@@ -117,10 +133,19 @@ export function TeamPage({
           {/* Right: minutes, or the new-meeting composer */}
           <motion.section layout className="no-scrollbar relative min-h-[420px] overflow-y-auto rounded-[32px] bg-surface shadow-card md:min-h-0">
             <AnimatePresence mode="wait" initial={false}>
-              {composing ? (
+              {editing ? (
+                <motion.div key="settings" {...swap} className="p-6 lg:p-9">
+                  <TeamSettings team={team} onClose={() => setEditing(false)} />
+                </motion.div>
+              ) : composing ? (
                 <motion.div key="compose" {...swap} className="h-full p-6 lg:p-9">
                   <Composer
                     connected={connected}
+                    team={team}
+                    onEditBrief={() => {
+                      setComposing(false);
+                      setEditing(true);
+                    }}
                     canStart={pickedMembers.length > 0}
                     onCancel={() => setComposing(false)}
                     onStart={(title, durationMin) =>
@@ -135,7 +160,7 @@ export function TeamPage({
                 </motion.div>
               ) : meeting ? (
                 <motion.div key={meeting.id} {...swap} className="p-6 lg:p-9">
-                  <Minutes meeting={meeting} onFocusAgent={setFocusAgent} />
+                  <Minutes meeting={meeting} team={team} onFocusAgent={setFocusAgent} />
                 </motion.div>
               ) : (
                 <motion.div key="empty" {...swap} className="h-full">

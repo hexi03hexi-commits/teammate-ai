@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { AGENTS, ASLEEP_LOOK, type AgentId, type Mood } from "./meta";
+import { AGENTS, type AgentId, type Mood } from "./meta";
 import { Extras, Face } from "./Face";
 import { Prop } from "./Prop";
 
@@ -24,7 +24,8 @@ interface Props {
 export function AgentFigure({ agent, mood, size, look, bare, className }: Props) {
   const a = AGENTS[agent];
   const asleep = mood === "asleep";
-  const { from, to } = asleep ? ASLEEP_LOOK : a;
+  // Asleep agents keep their own colour so you can still tell who is who; only the glow dims.
+  const { from, to } = a;
   const lively = mood === "speaking" || mood === "nudging";
 
   return (
@@ -39,7 +40,7 @@ export function AgentFigure({ agent, mood, size, look, bare, className }: Props)
           height: "22%",
           background: to,
           filter: `blur(${Math.max(6, size * 0.09)}px)`,
-          opacity: asleep ? 0.18 : lively ? 0.75 : 0.5,
+          opacity: asleep ? 0.28 : lively ? 0.75 : 0.5,
           transition: "opacity 0.6s, background 0.6s",
         }}
       />

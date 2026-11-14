@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion } from "motion/react";
 import { AgentFigure } from "../../agents/AgentFigure";
+import type { Team } from "../../store/teams";
 import { Icon, IconButton } from "../../ui/kit";
 
 const DURATIONS = [5, 10, 15, 30] as const;
@@ -8,22 +9,29 @@ const spring = { type: "spring", stiffness: 480, damping: 34 } as const;
 
 interface Props {
   connected: boolean;
+  team: Team;
+  /** Open the team settings to change the brief */
+  onEditBrief: () => void;
   /** At least one member is picked */
   canStart: boolean;
   onCancel?: () => void;
   onStart: (title: string, durationMin: number) => void;
 }
 
-/** New meeting: a topic, a length, go. Who attends is picked in the roster on the left. */
-export function Composer({ connected, canStart, onCancel, onStart }: Props) {
+/**
+ * New meeting: a topic and a length. Who attends is picked in the roster on the left.
+ * The target, judging criteria and track come from the team; they are shown here to be checked, not re-entered.
+ */
+export function Composer({ connected, team, onEditBrief, canStart, onCancel, onStart }: Props) {
   const [title, setTitle] = useState("");
-  const [duration, setDuration] = useState<number>(5);
+  // No length is assumed: it is the team's last choice, or has to be picked.
+  const [duration, setDuration] = useState<number | null>(team.durationMin ?? null);
   const [focused, setFocused] = useState(false);
-  const ready = title.trim().length > 0 && canStart;
+  const ready = title.trim().length > 0 && duration !== null && canStart;
   const enabled = ready && connected;
 
   const submit = () => {
-    if (enabled) onStart(title.trim(), duration);
+    if (enabled && duration !== null) onStart(title.trim(), duration);
   };
 
   return (
@@ -75,6 +83,33 @@ export function Composer({ connected, canStart, onCancel, onStart }: Props) {
           })}
         </div>
       </div>
+
+      {/* The team brief this meeting will run on */}
+      <button
+        type="button"
+        onClick={onEditBrief}
+        aria-label="Edit team brief"
+        className="group mt-8 flex w-full items-start gap-4 rounded-[22px] bg-surface-2 py-3.5 pr-3.5 pl-5 text-left transition hover:bg-surface-2/60"
+        style={{ boxShadow: "inset 0 0 0 1px var(--line)" }}
+      >
+        <dl className="grid min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-[14px]">
+          {(
+            [
+              ["Target", team.scope],
+              ["Criteria", team.criteria],
+              ["Track", team.industry],
+            ] as const
+          ).map(([k, v]) => (
+            <div key={k} className="contents">
+              <dt className="pt-[3px] text-[11px] font-bold uppercase tracking-[0.14em] text-ink-3">{k}</dt>
+              <dd className={v ? "truncate font-medium text-ink-2" : "text-ink-3"}>{v || "—"}</dd>
+            </div>
+          ))}
+        </dl>
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-ink-3 transition group-hover:bg-ink/5 group-hover:text-ink">
+          <Icon name="sliders" size={18} />
+        </span>
+      </button>
 
       <div className="mt-auto flex items-center justify-end gap-3 pt-10">
         {!connected && (

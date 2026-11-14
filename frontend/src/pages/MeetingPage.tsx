@@ -113,9 +113,11 @@ export function MeetingPage({ session, team }: { session: Session; team: Team })
 
   // ───── Layout ─────
   const narrow = size.w < 900;
+  // Phones (usually someone following along): one column that scrolls, and no dock
+  const phone = size.w < 640;
   const n = stations.length;
-  const columns = n <= 1 ? 1 : narrow ? (n >= 3 ? 2 : 1) : n === 3 ? 3 : 2;
-  const compact = n >= 3 || (narrow && n === 2);
+  const columns = n <= 1 || phone ? 1 : narrow ? (n >= 3 ? 2 : 1) : n === 3 ? 3 : 2;
+  const compact = phone || n >= 3 || (narrow && n === 2);
   const mainSmall = 0.3;
   const mainY = staged ? -size.h / 2 + 34 + (MAIN_SIZE * mainSmall) / 2 : -size.h * 0.045;
   const chipRx = Math.min(size.w * 0.34, 330);
@@ -142,7 +144,7 @@ export function MeetingPage({ session, team }: { session: Session; team: Team })
         <SpeakerWash teammates={snapshot.teammates} />
 
         {/* ───── Top: topic and clock ───── */}
-        <header className="absolute inset-x-0 top-0 z-20 flex items-start justify-between px-8 pt-7">
+        <header className={`absolute inset-x-0 top-0 z-20 flex items-start justify-between ${phone ? "px-4 pt-5" : "px-8 pt-7"}`}>
           <h1 className="max-w-[36%] truncate text-[17px] font-semibold text-ink-2">{snapshot.config?.goal}</h1>
           <div className="flex items-center gap-2.5 text-[17px] font-semibold tabular-nums">
             <span className="transition-colors duration-500" style={{ color: over ? "#ff5a4f" : "var(--ink)" }}>
@@ -197,10 +199,12 @@ export function MeetingPage({ session, team }: { session: Session; team: Team })
 
         {/* ───── Stage: the agents that have stepped forward ───── */}
         <div
-          className="absolute inset-x-0 z-10 grid content-center items-start justify-center px-8"
+          className={`no-scrollbar absolute inset-x-0 z-10 grid items-start justify-center overflow-y-auto ${phone ? "px-4 py-2" : "px-8"}`}
           style={{
-            top: 140,
-            bottom: 118,
+            top: phone ? 118 : 140,
+            bottom: phone ? 104 : 118,
+            // centred while it fits, top-aligned and scrollable once it does not
+            alignContent: "safe center",
             gridTemplateColumns: `repeat(${columns}, minmax(0, ${columns === 1 ? 700 : columns === 2 ? 540 : 380}px))`,
             gap: compact ? "22px 26px" : "34px 44px",
             pointerEvents: staged ? "auto" : "none",
@@ -226,9 +230,9 @@ export function MeetingPage({ session, team }: { session: Session; team: Team })
         </div>
 
         {/* ───── Bottom: people · controls · agents ───── */}
-        <footer className="absolute inset-x-0 bottom-0 z-20 flex items-end justify-between px-8 pb-7">
+        <footer className={`absolute inset-x-0 bottom-0 z-20 flex items-end justify-between ${phone ? "px-4 pb-5" : "px-8 pb-7"}`}>
           {/* People: the one talking steps up */}
-          <div className="flex items-end gap-3">
+          <div className={`flex items-end ${phone ? "gap-2" : "gap-3"}`}>
             {members.map((m) => {
               const talking = m.id === talkingId;
               return (
@@ -236,7 +240,7 @@ export function MeetingPage({ session, team }: { session: Session; team: Team })
                   <div className="flex h-4 items-end gap-[3px]">
                     {talking && [0, 1, 2, 3].map((i) => <span key={i} className="tick w-[3px] rounded-full bg-ink" style={{ height: [8, 14, 10, 6][i], animationDelay: `${i * 0.12}s`, animationDuration: "0.6s" }} />)}
                   </div>
-                  <MemberAvatar name={m.name} size={46} active={talking} dim={paused} />
+                  <MemberAvatar name={m.name} size={phone ? 36 : 46} active={talking} dim={paused} />
                   <span className={`text-[12px] font-semibold transition-colors ${talking ? "text-ink" : "text-ink-3"}`}>{m.name.replace(/^Dr\.?\s+/i, "")}</span>
                 </motion.div>
               );
@@ -270,7 +274,7 @@ export function MeetingPage({ session, team }: { session: Session; team: Team })
           )}
 
           {/* Agents waiting in the dock */}
-          <div className="flex items-end gap-2">
+          <div className={phone ? "hidden" : "flex items-end gap-2"}>
             {TEAMMATE_IDS.map((id) => {
               const t = snapshot.teammates[id];
               const away = onStage.has(id);

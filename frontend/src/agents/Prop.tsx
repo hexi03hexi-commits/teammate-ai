@@ -50,12 +50,12 @@ export function Prop({ agent, color, asleep }: { agent: AgentId; color: string; 
         right: "-4%",
         bottom: "2%",
         transition: "opacity 0.5s, transform 0.5s cubic-bezier(.3,1.4,.5,1)",
-        opacity: asleep ? 0.55 : 1,
+        opacity: asleep ? 0.8 : 1,
         transform: asleep ? "scale(0.88) rotate(-8deg)" : "scale(1)",
       }}
     >
       <svg viewBox="0 0 24 24" width="62%" height="62%" aria-hidden>
-        {ICONS[agent](asleep ? "var(--ink-3)" : color)}
+        {ICONS[agent](color)}
       </svg>
     </div>
   );

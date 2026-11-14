@@ -1,9 +1,9 @@
-import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { AgentFigure } from "../../agents/AgentFigure";
 import type { Team } from "../../store/teams";
 import { IconButton, MemberAvatar } from "../../ui/kit";
 import { ago, sortedMeetings, teamAgents } from "../team/util";
+import { NewTeam } from "./NewTeam";
 
 interface Props {
   teams: Team[];
@@ -14,20 +14,8 @@ interface Props {
   onHover: (teamId: string | null) => void;
 }
 
-/** Sidebar: every team, newest first, plus the inline "add team" field. */
+/** Sidebar: every team, newest first, plus the "new team" panel. */
 export function TeamList({ teams, adding, setAdding, onOpenTeam, onAddTeam, onHover }: Props) {
-  const [name, setName] = useState("");
-
-  const close = () => {
-    setName("");
-    setAdding(false);
-  };
-  const confirm = () => {
-    const n = name.trim();
-    if (!n) return close();
-    onAddTeam(n);
-    close();
-  };
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -38,7 +26,7 @@ export function TeamList({ teams, adding, setAdding, onOpenTeam, onAddTeam, onHo
           label={adding ? "Cancel" : "Add team"}
           size={40}
           tone={adding ? "plain" : "glass"}
-          onClick={() => (adding ? close() : setAdding(true))}
+          onClick={() => setAdding(!adding)}
         />
       </div>
 
@@ -53,21 +41,13 @@ export function TeamList({ teams, adding, setAdding, onOpenTeam, onAddTeam, onHo
               transition={{ type: "spring", stiffness: 420, damping: 36 }}
               className="overflow-hidden"
             >
-              <div className="mb-2 rounded-[24px] bg-surface-2 p-1.5">
-                <input
-                  autoFocus
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") confirm();
-                    if (e.key === "Escape") close();
-                  }}
-                  onBlur={() => !name.trim() && close()}
-                  placeholder="team name"
-                  aria-label="Team name"
-                  className="h-12 w-full rounded-[18px] bg-surface px-4 text-[17px] font-medium text-ink shadow-card outline-none placeholder:text-ink-3"
-                />
-              </div>
+              <NewTeam
+                onCancel={() => setAdding(false)}
+                onCreate={(name) => {
+                  onAddTeam(name);
+                  setAdding(false);
+                }}
+              />
             </motion.div>
           )}
         </AnimatePresence>
