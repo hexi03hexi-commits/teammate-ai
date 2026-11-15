@@ -164,3 +164,7 @@ Built with TypeScript throughout: React 19, Vite, Tailwind CSS, Motion and three
 - A new voice takes about two seconds of speech to be named.
 - The export button on the minutes and the invite link for a new team are placeholders.
 - Teams and past meetings are stored in the browser, so they do not sync between devices.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
