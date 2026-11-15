@@ -4,6 +4,12 @@ AI teammates that sit in on a small team's brainstorm and fill the role nobody i
 
 A four-person hackathon team rarely has a facilitator, a researcher, a domain expert and a sceptic all at the table. Teammate AI listens to the meeting on one shared device and brings in a specialist only when that role is missing. If someone on the team is already keeping time, the timekeeper stays asleep. If someone has already raised the risk, nobody repeats it. Most of the time the right thing for it to do is nothing.
 
+## In short
+
+- **The problem.** Small teams brainstorm without the roles a good meeting needs. Nobody keeps time, nobody checks whether the idea already exists, a confident number goes unquestioned, and everyone agrees too fast. Meeting assistants that talk all the time make this worse, because the team learns to ignore them.
+- **What we built.** A web app that listens to a live meeting on one shared device and adds four specialist teammates and a coordinator. Each one speaks only when its role is missing and stays asleep when a person is already doing the job. Afterwards it writes the minutes.
+- **How it works.** Speech is transcribed and matched to each person's voice. After every pause a fast model reads the whole conversation and decides whether a role is empty; if so, a stronger model writes one short line, and plain code holds it until there is a gap to say it in.
+
 ## The teammates
 
 | Teammate | Role | Steps in when |
@@ -45,6 +51,29 @@ One rule shapes the design: **the models decide whether to speak, who speaks and
 | Keyword chips on the listening screen | `claude-haiku-5-5` | Cosmetic and frequent |
 
 Speech-to-text is Deepgram `nova-3` with speaker diarization. Voiceprints run locally on the server with `sherpa-onnx`. The teammates' voices are ElevenLabs `eleven_flash_v2_5`, one voice each; a line is synthesised while the teammate is still waiting for a pause, so it is ready the moment the gap comes.
+
+## APIs, models and datasets
+
+**APIs**
+
+- **Anthropic Claude API**: Messages API with structured outputs for every decision and every line a teammate writes, and the web search tool (`web_search_20260209`) for Scout.
+- **Deepgram** streaming speech-to-text, with speaker diarization.
+- **ElevenLabs** text-to-speech, optional. Without a key, the browser's built-in speech synthesis reads the lines.
+
+**Models**
+
+- `claude-sonnet-5-5`: Atlas, deciding after every pause and answering questions.
+- `claude-opus-5-5`: Pilot, Scout, Sage and Rebel, the meeting minutes and the private notes.
+- `claude-haiku-5-5`: keyword chips on the listening screen.
+- Deepgram `nova-3`: transcription.
+- ElevenLabs `eleven_flash_v2_5`: the teammates' voices.
+- 3D-Speaker ERes2Net (`3dspeaker_speech_eres2net_base_sv_zh-cn_3dspeaker_16k`): voiceprints. An open speaker-verification model, run locally on the server with `sherpa-onnx` and downloaded from the sherpa-onnx releases on first start.
+
+**Datasets**
+
+- No model was trained or fine-tuned, so no training data was used.
+- The 25 evaluation scenarios in `fixtures/eval/` and the demo conversation in `fixtures/brainstorm.json` were written by the team. The people and private notes in them are invented.
+- To choose the voiceprint model we compared candidates on the public sherpa-onnx speaker-identification test recordings ([csukuangfj/sr-data](https://github.com/csukuangfj/sr-data)) and on recordings of our own voices. Neither is in this repository.
 
 ## Quick start
 
