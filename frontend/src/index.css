@@ -32,6 +32,9 @@
   color-scheme: dark;
 }
 
+/* The theme is an attribute on <html>, not a .dark class: `dark:` follows data-theme. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 @theme inline {
   --color-bg: var(--bg);
   --color-surface: var(--surface);

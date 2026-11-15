@@ -11,8 +11,23 @@ import { serveAudio, ttsAvailable } from "./audio/tts.ts";
 import { forgetPersonas } from "./personaStore.ts";
 
 const clients = new Map<WebSocket, ClientRole>();
+/** 只有一个主设备真的发声：第一个连上来的 host。它断开时顺位交给下一个 host。 */
+let speakerWs: WebSocket | null = null;
+
+/** 还在线的 host 里最早连上的那个（Map 按插入顺序）。 */
+function firstHost(): WebSocket | null {
+  for (const [ws, role] of clients) {
+    if (role === "host" && ws.readyState === WebSocket.OPEN) return ws;
+  }
+  return null;
+}
 
 function broadcast(event: ServerEvent) {
+  // 发声只发给一个页面：两个页面同时播放会叠成两个声音
+  if (event.type === "speak") {
+    if (speakerWs?.readyState === WebSocket.OPEN) speakerWs.send(JSON.stringify(event));
+    return;
+  }
   const data = JSON.stringify(event);
   for (const ws of clients.keys()) {
     if (ws.readyState === WebSocket.OPEN) ws.send(data);
@@ -140,12 +155,21 @@ wss.on("connection", (ws) => {
     }
     if (msg.type === "hello") {
       clients.set(ws, msg.role);
+      // 第一个 host 负责发声，后来连上的 host 只看不说
+      if (msg.role === "host" && speakerWs?.readyState !== WebSocket.OPEN) speakerWs = ws;
+      else if (msg.role === "viewer" && speakerWs === ws) speakerWs = firstHost();
       return;
     }
+    // 只有正在发声的那个页面能推进时间线：别的页面说完了不算
+    if (msg.type === "speak_done" && ws !== speakerWs) return;
     session.handleClient(msg);
   });
-  ws.on("close", () => clients.delete(ws));
-  ws.on("error", () => clients.delete(ws));
+  const drop = () => {
+    clients.delete(ws);
+    if (speakerWs === ws) speakerWs = firstHost();
+  };
+  ws.on("close", drop);
+  ws.on("error", drop);
 });
 
 server.listen(config.port, () => {

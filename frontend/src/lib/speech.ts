@@ -133,6 +133,8 @@ class SpeechQueue {
   }
 
   private speakTts(e: SpeakEvent, start: () => void, finish: () => void, arm: (ms: number) => void) {
+    // A lingering mp3 must never layer under the browser voice (only one line at a time).
+    this.audio?.pause();
     if (!("speechSynthesis" in window)) return finish();
     const synth = window.speechSynthesis;
     const style = VOICE_STYLE[e.teammate];

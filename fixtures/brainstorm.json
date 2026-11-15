@@ -1,7 +1,7 @@
 {
-  "_comment": "t 是距开场的秒数。utterance 在所有模式下播放；scripted 只在 MODE=scripted 下播放（代替真实 agent 的输出，供前端开发用）。",
+  "_comment": "t 是距开场的秒数。utterance 在所有模式下播放；scripted 只在 MODE=scripted 下播放（代替真实 agent 的输出，供前端开发用）。开场时间轴整体前移 4 秒（见 server/src/replay.ts 的 START_OFFSET_S），第一句的 t 已相应调整，其余不变。",
   "items": [
-    { "t": 2, "type": "utterance", "speaker": "s1", "text": "Okay, we have about five minutes to lock an idea. Education track. What have we got?" },
+    { "t": 6, "type": "utterance", "speaker": "s1", "text": "Okay, we have about five minutes to lock an idea. Education track. What have we got?" },
     { "t": 8, "type": "utterance", "speaker": "s3", "text": "What about an AI study buddy that turns your lecture recordings into flashcards automatically?" },
     { "t": 15, "type": "utterance", "speaker": "s2", "text": "Oh I like that. I could make the flashcards look really nice, like a swipe deck." },
     { "t": 21, "type": "utterance", "speaker": "s4", "text": "Has anyone done that already? It sounds familiar." },

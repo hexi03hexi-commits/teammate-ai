@@ -160,6 +160,8 @@ export interface Card {
 export interface Assignment {
   owner: string;
   task: string;
+  /** 勾选状态。旧数据没有这个字段时按 false 处理 */
+  done?: boolean;
 }
 
 /** 讨论过的一个议题和它的要点，用于会后纪要 */

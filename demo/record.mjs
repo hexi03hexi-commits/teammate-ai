@@ -225,7 +225,7 @@ await sleep(5000);
 // ═════════════ 8 · Minutes, filed ═════════════
 await step(7, "End the meeting and it is filed as minutes: decision, action items, discussion, each agent's input.");
 await tap(app.getByLabel("End meeting"), 900);
-await tap(app.getByLabel("End meeting"), 400);
+await tap(app.getByLabel("Confirm end meeting"), 400);
 await seen("Meeting minutes", 20_000);
 await sleep(2400);
 await glide(panel.x, panel.y, 300);

@@ -16,6 +16,8 @@ import { SPRING, Station } from "./meeting/Station";
 const TALKING_MS = 2600;
 /** A card steps back into the dock by itself after this long (it stays reachable there) */
 const STATION_LIFE_MS = 45_000;
+/** The second tap needed to end a meeting is dropped automatically after this window */
+const CONFIRM_STOP_MS = 7000;
 const MAIN_SIZE = 280;
 
 function useSize<T extends HTMLElement>() {
@@ -202,7 +204,7 @@ export function MeetingPage({ session, team }: { session: Session; team: Team })
   const [confirmStop, setConfirmStop] = useState(false);
   useEffect(() => {
     if (!confirmStop) return;
-    const t = window.setTimeout(() => setConfirmStop(false), 3500);
+    const t = window.setTimeout(() => setConfirmStop(false), CONFIRM_STOP_MS);
     return () => clearTimeout(t);
   }, [confirmStop]);
 
@@ -356,9 +358,17 @@ export function MeetingPage({ session, team }: { session: Session; team: Team })
             <div className="glass absolute bottom-7 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full p-2">
               <AnimatePresence mode="popLayout" initial={false}>
                 {confirmStop ? (
-                  <motion.div key="confirm" className="flex items-center gap-2" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }}>
+                  <motion.div key="confirm" role="group" aria-label="Confirm ending the meeting" className="flex items-center gap-2" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }}>
                     <IconButton icon="close" label="Keep going" size={52} onClick={() => setConfirmStop(false)} />
-                    <IconButton icon="check" label="End meeting" tone="danger" size={52} onClick={() => send({ type: "end_session" })} />
+                    <IconButton
+                      icon="check"
+                      label="End meeting"
+                      aria-label="Confirm end meeting"
+                      title="Confirm end meeting"
+                      tone="danger"
+                      size={52}
+                      onClick={() => send({ type: "end_session" })}
+                    />
                   </motion.div>
                 ) : (
                   <motion.div key="controls" className="flex items-center gap-2" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }}>

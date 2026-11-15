@@ -5,6 +5,8 @@ import type { Team } from "../../store/teams";
 import { Icon, IconButton } from "../../ui/kit";
 
 const DURATIONS = [5, 10, 15, 30] as const;
+/** New teams have no length of their own yet: start them at a sensible default */
+const DEFAULT_DURATION = 10;
 const spring = { type: "spring", stiffness: 480, damping: 34 } as const;
 
 interface Props {
@@ -24,14 +26,16 @@ interface Props {
  */
 export function Composer({ connected, team, onEditBrief, canStart, onCancel, onStart }: Props) {
   const [title, setTitle] = useState("");
-  // No length is assumed: it is the team's last choice, or has to be picked.
-  const [duration, setDuration] = useState<number | null>(team.durationMin ?? null);
+  // Default to 10 min for a team that has never met; afterwards reuse its last choice.
+  const [duration, setDuration] = useState<number | null>(team.durationMin ?? DEFAULT_DURATION);
   const [focused, setFocused] = useState(false);
-  const ready = title.trim().length > 0 && duration !== null && canStart;
+  const ready = duration !== null && canStart;
   const enabled = ready && connected;
 
   const submit = () => {
-    if (enabled && duration !== null) onStart(title.trim(), duration);
+    // No topic is fine: number the untitled ones after the highest "Quick meeting N" so far.
+    const t = title.trim() || `Quick meeting ${team.meetings.filter((m) => m.title.startsWith("Quick meeting ")).length + 1}`;
+    if (enabled && duration !== null) onStart(t, duration);
   };
 
   return (
@@ -54,9 +58,8 @@ export function Composer({ connected, team, onEditBrief, canStart, onCancel, onS
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         onKeyDown={(e) => e.key === "Escape" && onCancel?.()}
-        placeholder="What are we deciding?"
+        placeholder="What are we deciding? (optional)"
         aria-label="Meeting topic"
-        required
         className="mt-8 w-full border-b-2 border-line bg-transparent pb-4 text-[34px] leading-tight font-semibold tracking-[-0.025em] text-ink outline-none transition-colors placeholder:text-ink-3/70 focus:border-ink/30"
       />
 
@@ -127,9 +130,9 @@ export function Composer({ connected, team, onEditBrief, canStart, onCancel, onS
           whileTap={enabled ? { scale: 0.95 } : undefined}
           animate={{ opacity: enabled ? 1 : 0.35 }}
           transition={spring}
-          className="flex h-14 items-center gap-3 rounded-full bg-ink pr-7 pl-5 text-[18px] font-semibold text-bg! shadow-float disabled:cursor-not-allowed disabled:shadow-none"
+          className="flex h-14 items-center gap-3 rounded-full bg-ink pr-7 pl-5 text-[18px] font-semibold text-bg! shadow-float disabled:cursor-not-allowed disabled:shadow-none dark:bg-surface-2 dark:text-ink! dark:shadow-[inset_0_0_0_1px_var(--line)]"
         >
-          <span className="grid h-8 w-8 place-items-center rounded-full bg-bg/15">
+          <span className="grid h-8 w-8 place-items-center rounded-full bg-bg/15 dark:bg-ink/15">
             <Icon name="play" size={16} />
           </span>
           Start

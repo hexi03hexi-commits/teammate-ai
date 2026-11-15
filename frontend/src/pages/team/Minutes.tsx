@@ -3,7 +3,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { TEAMMATE_IDS, type TeammateId } from "@teammate/shared";
 import { AgentFigure } from "../../agents/AgentFigure";
 import { AGENTS } from "../../agents/meta";
-import type { Meeting, MinuteEntry, Team } from "../../store/teams";
+import { setAssignmentDone, type Meeting, type MinuteEntry, type Team } from "../../store/teams";
 import { Icon, MemberAvatar, clock } from "../../ui/kit";
 import { ink, tint } from "./util";
 
@@ -107,8 +107,8 @@ export function Minutes({ meeting, team, onFocusAgent }: { meeting: Meeting; tea
       {d && (
         <motion.section {...rise()}>
           <Label>Decision</Label>
-          <div className="flex items-start gap-3.5 rounded-[22px] bg-ink px-5 py-4 text-bg">
-            <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-bg/15">
+          <div className="flex items-start gap-3.5 rounded-[22px] bg-ink px-5 py-4 text-bg dark:bg-surface-2 dark:text-ink dark:shadow-[inset_0_0_0_1px_var(--line)]">
+            <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-bg/15 dark:bg-ink/15">
               <Icon name="check" size={15} />
             </span>
             <p className="text-[20px] leading-snug font-semibold tracking-[-0.01em]">{d.conclusion}</p>
@@ -124,8 +124,22 @@ export function Minutes({ meeting, team, onFocusAgent }: { meeting: Meeting; tea
             {d.assignments.map((a, i) => (
               <li key={i} className={`flex items-center gap-3 px-4 py-3 ${i ? "border-t border-line" : ""}`}>
                 <span className="w-5 shrink-0 text-[13px] font-semibold text-ink-3 tabular-nums">{String(i + 1).padStart(2, "0")}</span>
-                <span className="h-[18px] w-[18px] shrink-0 rounded-[6px]" style={{ boxShadow: "inset 0 0 0 1.5px var(--ink-3)" }} />
-                <span className="min-w-0 flex-1 text-[15px] text-ink">{a.task}</span>
+                <button
+                  type="button"
+                  role="checkbox"
+                  aria-checked={!!a.done}
+                  aria-label={`Mark "${a.task}" done`}
+                  onClick={() => setAssignmentDone(team.id, meeting.id, i, !a.done)}
+                  className="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-[6px] transition active:scale-90"
+                  style={{ boxShadow: "inset 0 0 0 1.5px var(--ink-3)", background: a.done ? "var(--ink)" : "transparent" }}
+                >
+                  {a.done && (
+                    <span style={{ color: "var(--bg)" }}>
+                      <Icon name="check" size={12} />
+                    </span>
+                  )}
+                </button>
+                <span className={`min-w-0 flex-1 text-[15px] ${a.done ? "text-ink-3 line-through" : "text-ink"}`}>{a.task}</span>
                 <span className="flex shrink-0 items-center gap-2">
                   <MemberAvatar name={a.owner} size={24} />
                   <span className="text-[14px] font-semibold text-ink-2">{a.owner}</span>

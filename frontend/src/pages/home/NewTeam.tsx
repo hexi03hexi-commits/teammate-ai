@@ -85,7 +85,7 @@ export function NewTeam({ onCreate, onCancel }: { onCreate: (name: string) => vo
         <button
           type="submit"
           disabled={!ready}
-          className="flex h-10 items-center gap-1.5 rounded-full bg-ink pr-4 pl-3 text-[14px] font-semibold text-bg transition enabled:hover:scale-[1.03] enabled:active:scale-95 disabled:opacity-30"
+          className="flex h-10 items-center gap-1.5 rounded-full bg-ink pr-4 pl-3 text-[14px] font-semibold text-bg transition enabled:hover:scale-[1.03] enabled:active:scale-95 disabled:opacity-30 dark:bg-surface-2 dark:text-ink dark:shadow-[inset_0_0_0_1px_var(--line)]"
         >
           <Icon name="plus" size={16} />
           Create

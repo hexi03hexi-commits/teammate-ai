@@ -97,7 +97,7 @@ export function TeamPage({
               exit={{ opacity: 0, scale: 0.9 }}
               whileTap={{ scale: 0.95 }}
               transition={{ type: "spring", stiffness: 480, damping: 32 }}
-              className="flex h-12 items-center gap-2 rounded-full bg-ink pr-6 pl-4 text-[16px] font-semibold text-bg! shadow-float"
+              className="flex h-12 items-center gap-2 rounded-full bg-ink pr-6 pl-4 text-[16px] font-semibold text-bg! shadow-float dark:bg-surface-2 dark:text-ink! dark:shadow-[inset_0_0_0_1px_var(--line)]"
             >
               <Icon name="plus" size={20} />
               New meeting
@@ -208,9 +208,9 @@ function Empty({ onStart }: { onStart: () => void }) {
         onPointerEnter={() => setAwake(true)}
         onPointerLeave={() => setAwake(false)}
         whileTap={{ scale: 0.95 }}
-        className="flex h-14 items-center gap-3 rounded-full bg-ink pr-7 pl-5 text-[18px] font-semibold text-bg! shadow-float"
+        className="flex h-14 items-center gap-3 rounded-full bg-ink pr-7 pl-5 text-[18px] font-semibold text-bg! shadow-float dark:bg-surface-2 dark:text-ink! dark:shadow-[inset_0_0_0_1px_var(--line)]"
       >
-        <span className="grid h-8 w-8 place-items-center rounded-full bg-bg/15">
+        <span className="grid h-8 w-8 place-items-center rounded-full bg-bg/15 dark:bg-ink/15">
           <Icon name="plus" size={18} />
         </span>
         First meeting

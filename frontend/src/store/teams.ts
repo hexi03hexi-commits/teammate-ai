@@ -232,6 +232,30 @@ export function addMeeting(teamId: string, meeting: Omit<Meeting, "id">): Meetin
   return full;
 }
 
+/** Tick one action item of a filed meeting. Old meetings have no `done`: it reads as unticked. */
+export function setAssignmentDone(teamId: string, meetingId: string, index: number, done: boolean) {
+  commit(
+    teams.map((t) =>
+      t.id !== teamId
+        ? t
+        : {
+            ...t,
+            meetings: t.meetings.map((m) =>
+              m.id !== meetingId || !m.decision
+                ? m
+                : {
+                    ...m,
+                    decision: {
+                      ...m.decision,
+                      assignments: m.decision.assignments.map((a, i) => (i === index ? { ...a, done } : a)),
+                    },
+                  },
+            ),
+          },
+    ),
+  );
+}
+
 export function removeTeam(teamId: string) {
   commit(teams.filter((t) => t.id !== teamId));
 }
