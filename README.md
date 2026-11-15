@@ -75,27 +75,6 @@ Speech-to-text is Deepgram `nova-3` with speaker diarization. Voiceprints run lo
 - The 25 evaluation scenarios in `fixtures/eval/` and the demo conversation in `fixtures/brainstorm.json` were written by the team. The people and private notes in them are invented.
 - To choose the voiceprint model we compared candidates on the public sherpa-onnx speaker-identification test recordings ([csukuangfj/sr-data](https://github.com/csukuangfj/sr-data)) and on recordings of our own voices. Neither is in this repository.
 
-## Quick start
-
-Requires Node.js 22 or later.
-
-```bash
-npm install
-```
-
-```bash
-cp .env.example .env
-```
-
-```bash
-npm run dev
-```
-
-Open <http://localhost:5173>, pick a team, start a new meeting, enter a topic and a length, and press start.
-
-Out of the box this runs in `scripted` mode, which plays a fixed conversation and fixed cards and **needs no API keys**. It is the quickest way to see the interface.
-
-Other devices on the same network can follow the meeting by opening the same address with `?role=viewer`.
 
 ## Modes
 
